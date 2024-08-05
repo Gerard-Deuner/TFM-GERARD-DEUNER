@@ -1,0 +1,66 @@
+---
+title: "Patient By Patient TCR Analysis"
+author: "Gerard Deuner Cos"
+date: "2024-05-16"
+output: html_document
+---
+
+```{r}
+# load libraries
+library(Seurat)
+library(dplyr)
+library(scRepertoire)
+library(SeuratData)
+library(SeuratDisk)
+library(rhdf5)
+library(scCustomize)
+library(stringr)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(qs)
+```
+
+```{r}
+# import path variables 
+source("/Users/gerarddeunercos/Documents/cluster1/gdeuner/config.R")
+```
+
+```{r}
+# set figures dir
+figs.dir <- "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/combined/TNK/TCR/"
+```
+
+```{r}
+data <- qread("/Users/gerarddeunercos/Downloads/Combined_SCR_C02_TCR_tumour_blood_30-04-24.qs")
+```
+
+```{r}
+# create patient specific objects
+p01.data <- data %>% subset(patient == "01")
+p02.data <- data %>% subset(patient == "02")
+p03.data <- data %>% subset(patient == "03")
+p08.data <- data %>% subset(patient == "08")
+p10.data <- data %>% subset(patient == "10")
+```
+
+```{r}
+clonalOccupy(data, x.axis = "Condition", label = T)
+clonalOccupy(p01.data, x.axis = "Condition", label = T)
+clonalOccupy(p02.data, x.axis = "Condition", label = T)
+clonalOccupy(p03.data, x.axis = "Condition", label = T)
+clonalOccupy(p08.data, x.axis = "Condition", label = T)
+clonalOccupy(p10.data, x.axis = "Condition", label = T)
+```
+
+```{r}
+clonalScatter(data, 
+              cloneCall ="gene", 
+              group.by = "Condition",
+              x.axis = "T0/-ICI", 
+              y.axis = "T1/+ICI",
+              dot.size = "total",
+              graph = "proportion",
+              palette = "RdYlGn")
+```
+

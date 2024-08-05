@@ -1,0 +1,252 @@
+---
+title: "Combined_SCR_C02_TCR_SetUp"
+author: "Gerard Deuner Cos"
+date: "2024-05-05"
+output: html_document
+---
+
+```{r}
+# load libraries
+library(Seurat)
+library(dplyr)
+library(scRepertoire)
+library(SeuratData)
+library(SeuratDisk)
+library(rhdf5)
+library(scCustomize)
+library(stringr)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(qs)
+```
+
+```{r}
+# import path variables 
+source("/Users/gerarddeunercos/Documents/cluster1/gdeuner/config.R")
+```
+
+```{r}
+###########################################
+# Read raw TCR data from all the patients #
+###########################################
+
+# PATIENT 01
+P01_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_04_05/jobs/01_CD45/01_CD45/outs/per_sample_outs/01_CD45/vdj_t/filtered_contig_annotations.csv"))
+P01_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_04_05/jobs/01_total/01_total/outs/per_sample_outs/01_total/vdj_t/filtered_contig_annotations.csv"))
+P01_S3 <- read.csv(paste0(sp.proj.dir,"/data/SERPENTINE_08_09/jobs/SPE_1_01_C2D1_A_FRESH_1/SPE_1_01_C2D1_A_FRESH_1/outs/per_sample_outs/SPE_1_01_C2D1_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P01_S4 <- read.csv(paste0(sp.proj.dir,"/data/SERPENTINE_08_09/jobs/SPE_1_01_C2D1_A_FRESH_2/SPE_1_01_C2D1_A_FRESH_2/outs/per_sample_outs/SPE_1_01_C2D1_A_FRESH_2/vdj_t/filtered_contig_annotations.csv")) 
+
+
+# PATIENT 02
+P02_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_06_07/jobs/SPE_1_02_SCR_A_FRESH_1/SPE_1_02_SCR_A_FRESH_1/outs/per_sample_outs/SPE_1_02_SCR_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P02_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_10_11/jobs/SPE_1_02_C02_A_FRESH_1/SPE_1_02_C02_A_FRESH_1/outs/per_sample_outs/SPE_1_02_C02_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P02_S3 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_06_07/jobs/SPE_1_02_SCR_A_FRESH_2/SPE_1_02_SCR_A_FRESH_2/outs/per_sample_outs/SPE_1_02_SCR_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+P02_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_10_11/jobs/SPE_1_02_C02_A_FRESH_2/SPE_1_02_C02_A_FRESH_2/outs/per_sample_outs/SPE_1_02_C02_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+  
+# PATIENT 03
+P03_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_10_11/jobs/SPE_1_03_SCR_A_FRESH/SPE_1_03_SCR_A_FRESH/outs/per_sample_outs/SPE_1_03_SCR_A_FRESH/vdj_t/filtered_contig_annotations.csv"))
+#P03_S2 <- read.csv(paste0(sp.proj.dir, "data/SERPENTINE_18_19/jobs/ESP_1_03_EOT_A_FRESH_CD45neg/ESP_1_03_EOT_A_FRESH_CD45neg/outs/per_sample_outs/ESP_1_03_EOT_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv"))
+P03_S3 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_14_15/jobs/SPE_1_03_C02_A_FRESH_C45/SPE_1_03_C02_A_FRESH_C45/outs/per_sample_outs/SPE_1_03_C02_A_FRESH_C45/vdj_t/filtered_contig_annotations.csv"))
+P03_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_18_19/jobs/ESP_1_03_EOT_A_FRESH_CD45pos/ESP_1_03_EOT_A_FRESH_CD45pos/outs/per_sample_outs/ESP_1_03_EOT_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv"))
+  
+# PATIENT 08
+P08_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_22_23/jobs/SPE_1_08_SCR_A_FRESH/SPE_1_08_SCR_A_FRESH/outs/per_sample_outs/SPE_1_08_SCR_A_FRESH/vdj_t/filtered_contig_annotations.csv"))
+P08_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_30_31/jobs/SPE_1_8_C2_A_FRESH_1/SPE_1_8_C2_A_FRESH_1/outs/per_sample_outs/SPE_1_8_C2_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P08_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_30_31/jobs/SPE_1_8_C2_A_FRESH_2/SPE_1_8_C2_A_FRESH_2/outs/per_sample_outs/SPE_1_8_C2_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+  
+# PATIENT 10
+#P10_S1 <- read.csv(paste0(sp.proj.dir, "data/SERPENTINE_28_29/jobs/SPE_1_10_SCR_A_FRESH_CD45neg/SPE_1_10_SCR_A_FRESH_CD45neg/outs/per_sample_outs/SPE_1_10_SCR_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv"))
+P10_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_28_29/jobs/SPE_1_10_SCR_A_FRESH_CD45pos/SPE_1_10_SCR_A_FRESH_CD45pos/outs/per_sample_outs/SPE_1_10_SCR_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv"))
+#P10_S3 <- read.csv(paste0(sp.proj.dir,"data/SERPENTINE_36_37/jobs/SPE_1_10_C2_A_FRESH_CD45neg/SPE_1_10_C2_A_FRESH_CD45neg/outs/per_sample_outs/SPE_1_10_C2_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv")) 
+P10_S4 <- read.csv(paste0(sp.proj.dir,"/data/SERPENTINE_36_37/jobs/SPE_1_10_C2_A_FRESH_CD45pos/SPE_1_10_C2_A_FRESH_CD45pos/outs/per_sample_outs/SPE_1_10_C2_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv")) 
+  
+
+# Create a contigs list
+
+contig_list_TCR <- list(P01_S1, P01_S2, P01_S3, P01_S4,  #P01
+                        P02_S1, P02_S2, P02_S3, P02_S4,  #P02
+                        P03_S1,         P03_S3, P03_S4,  #P03
+                        P08_S1, P08_S2,         P08_S4,  #P08 
+                                P10_S2,         P10_S4)  #P10
+                        
+
+###############
+# Combine TCR #
+###############
+
+combined_tcr <- combineTCR(contig_list_TCR, 
+                ID = c( 
+                  "01_CD45", "01_total", "SPE_1_01_C2D1_A_FRESH_1", "SPE_1_01_C2D1_A_FRESH_2",  #P01
+                  "SPE_1_02_SCR_A_FRESH_1", "SPE_1_02_C02_A_FRESH_1", "SPE_1_02_SCR_A_FRESH_2", "SPE_1_02_C02_A_FRESH_2", #P02
+                  "SPE_1_03_SCR_A_FRESH", "SPE_1_03_C02_A_FRESH_C45", "ESP_1_03_EOT_A_FRESH_CD45pos", #P03
+                  "SPE_1_08_SCR_A_FRESH", "SPE_1_8_C2_A_FRESH_1", "SPE_1_8_C2_A_FRESH_2", #P08
+                  "SPE_1_10_SCR_A_FRESH_CD45pos", "SPE_1_10_C2_A_FRESH_CD45pos" #P10
+                  ), 
+                samples = c(
+                  "SERPENTINE_04_05", "SERPENTINE_04_05", "SERPENTINE_08_09", "SERPENTINE_08_09", #P01
+                  "SERPENTINE_06_07", "SERPENTINE_10_11", "SERPENTINE_06_07", "SERPENTINE_10_11", #P02
+                  "SERPENTINE_10_11", "SERPENTINE_14_15", "SERPENTINE_18_19", #P03
+                  "SERPENTINE_22_23", "SERPENTINE_30_31", "SERPENTINE_30_31", #P08
+                  "SERPENTINE_28_29", "SERPENTINE_36_37" #P10
+                  )
+                )
+
+# rename to match sc
+
+# P01
+combined_tcr$SERPENTINE_04_05_01_CD45$barcode <- str_remove_all(combined_tcr$SERPENTINE_04_05_01_CD45$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_04_05_01_total$barcode <- str_remove_all(combined_tcr$SERPENTINE_04_05_01_total$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+# P02
+combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+# P03
+combined_tcr$SERPENTINE_10_11_SPE_1_03_SCR_A_FRESH$barcode <- str_remove_all(combined_tcr$SERPENTINE_10_11_SPE_1_03_SCR_A_FRESH$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_14_15_SPE_1_03_C02_A_FRESH_C45$barcode <- str_remove_all(combined_tcr$SERPENTINE_14_15_SPE_1_03_C02_A_FRESH_C45$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_18_19_ESP_1_03_EOT_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_18_19_ESP_1_03_EOT_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+
+# P08
+combined_tcr$SERPENTINE_22_23_SPE_1_08_SCR_A_FRESH$barcode <- str_remove_all(combined_tcr$SERPENTINE_22_23_SPE_1_08_SCR_A_FRESH$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+# P10
+combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_36_37_SPE_1_10_C2_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_36_37_SPE_1_10_C2_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+
+combined.TCR <- combined_tcr
+```
+
+```{r}
+# visualize TCR data
+combined.TCR
+```
+
+```{r}
+# load integrated + annotated TNK seurat object
+
+data <- LoadH5Seurat("/Users/gerarddeunercos/Downloads/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat", meta.data = FALSE, misc = FALSE)
+obs <- h5read("/Users/gerarddeunercos/Downloads/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat", "/meta.data")
+meta <- data.frame(lapply(names(obs), function(x) { 
+  if (length(obs[[x]])==2) 
+    obs[[x]][['categories']][ifelse(obs[[x]][['codes']] >= 0, obs[[x]][['codes']] + 1, NA)]
+  else 
+    as.numeric(obs[[x]])
+}
+), row.names=Cells(data))
+colnames(meta) <- names(obs)
+
+data <- AddMetaData(data,meta)
+```
+
+```{r}
+# remove NK and gamma-delta T populations
+data$Annotation_2.0 %>% unique
+data <- data[,!(data$Annotation_2.0 %in% c("γδ T-like", "Cycling γδ T-like", "CD56hi CD16lo NK", "CD56dim CD16hi NK"))]
+data
+```
+
+```{r}
+# adjust seurat object's cell barcoodes so they match the combined.TCR barcodes
+cell.barcodes <- rownames(data[[]])
+cell.barcodes <- stringr::str_split(cell.barcodes, "_", simplify = TRUE, n = 2)[, 2]
+data <- RenameCells(data, new.names = cell.barcodes)
+```
+
+
+```{r}
+# Combine Expression - join RNA + TCR data
+data <- combineExpression(
+  combined.TCR, 
+  data, 
+  chain = "both",
+  cloneCall="nt", 
+  proportion = FALSE, 
+  cloneSize=c(Single=1, Small=5, Medium=20, Large=50, Hyperexpanded=100))
+```
+
+```{r}
+# separate alpga and beta chains
+head(data@meta.data$CTnt) # combined expression using both chains, therefore we need to split them between alpha and beta chain
+data$CTnt_TRA <- substr(data@meta.data$CTnt, 1, regexpr("_", data@meta.data$CTnt) - 1)
+data$CTnt_TRB <- sub(".*_", "", data@meta.data$CTnt)
+```
+
+
+```{r}
+# save combined seurat object with updated TCR data
+qsave(data, "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/outputdata/combined/Combined_SCR_C02_T_TCR_05-05-24.qs")
+qsave(data, "/Users/gerarddeunercos/Downloads/Combined_SCR_C02_T_TCR_05-05-24.qs")
+```
+
+
+---------------------------
+
+```{r}
+p08.data <- qread("/Users/gerarddeunercos/Downloads/Combined_SCR_C02_T_TCR_05-05-24.qs")
+```
+
+```{r}
+# remove first and last 3 nucleotides from CTnt_beta
+p08.data$CTnt_TRB %>% head()
+p08.data$CTnt_TRB <- ifelse(nchar(p08.data$CTnt_TRB) > 6, substring(p08.data$CTnt_TRB, 4, nchar(p08.data$CTnt_TRB) - 3), p08.data$CTnt_TRB)
+
+p08.data$CTnt_TRB %>% head()
+```
+
+```{r}
+# read file containing differentially expanded clonotypes with 3 different thresholds
+tcr.1013.overlap <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/differential_expansion_overlap_tumour/SPE08_tumour_blood_differential_1013_overlap.csv")
+tcr.1865.overlap <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/differential_expansion_overlap_tumour/SPE08_tumour_blood_differential_1865_overlap.csv")
+tcr.4015.overlap <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/differential_expansion_overlap_tumour/SPE08_tumour_blood_differential_4015_overlap.csv")
+```
+
+```{r}
+for (id in p08.data$CTnt_TRB){
+  if (!is.na(id) && id == "GCCAGCAGTTTGGTCCTAGCGGGAGGGAATAAAAAAGAGACCCAGTAC"){
+    print("Found!")
+  }
+} 
+```
+
+
+```{r}
+# check sequences match
+unname(p08.data$CTnt_TRB) %in% tcr.1013.overlap$cdr3_nt %>% table()
+unname(p08.data$CTnt_TRB) %in% tcr.1865.overlap$cdr3_nt %>% table()
+unname(p08.data$CTnt_TRB) %in% tcr.4015.overlap$cdr3_nt %>% table()
+```
+
+```{r}
+# modify column names of csv files
+names(tcr.1013.overlap) <- c("cdr3_nt_1013", "compartment_1013", "tumour_1013")
+names(tcr.1865.overlap) <- c("cdr3_nt_1865", "compartment_1865", "tumour_1865")
+names(tcr.4015.overlap) <- c("cdr3_nt_4015", "compartment_4015", "tumour_4015")
+```
+
+```{r}
+# merge tcr info to seurat's metadata
+p08.data$cdr3_nt_1013 <- tcr.1013.overlap$cdr3_nt_1013[match(p08.data$CTnt_TRB, tcr.1013.overlap$cdr3_nt_1013)]
+p08.data$compartment_1013 <- tcr.1013.overlap$compartment_1013[match(p08.data$CTnt_TRB, tcr.1013.overlap$cdr3_nt_1013)]
+p08.data$tumour_1013 <- tcr.1013.overlap$tumour_1013[match(p08.data$CTnt_TRB, tcr.1013.overlap$cdr3_nt_1013)]
+
+p08.data$cdr3_nt_1865 <- tcr.1865.overlap$cdr3_nt_1865[match(p08.data$CTnt_TRB, tcr.1865.overlap$cdr3_nt_1865)]
+p08.data$compartment_1865<- tcr.1865.overlap$compartment_1865[match(p08.data$CTnt_TRB, tcr.1865.overlap$cdr3_nt_1865)]
+p08.data$tumour_1865 <- tcr.1865.overlap$tumour_1865[match(p08.data$CTnt_TRB, tcr.1865.overlap$cdr3_nt_1865)]
+
+p08.data$cdr3_nt_4015 <- tcr.4015.overlap$cdr3_nt_4015[match(p08.data$CTnt_TRB, tcr.4015.overlap$cdr3_nt_4015)]
+p08.data$compartment_4015 <- tcr.4015.overlap$compartment_4015[match(p08.data$CTnt_TRB, tcr.4015.overlap$cdr3_nt_4015)]
+p08.data$tumour_4015 <- tcr.4015.overlap$tumour_4015[match(p08.data$CTnt_TRB, tcr.4015.overlap$cdr3_nt_4015)]
+```
+
+```{r}
+# save seurat object
+#qsave(p08.data, "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/outputdata/Patient_08/Patient_08_TCR_Diff_Exp_tumor-blood_06-05-24.qs")
+qsave(p08.data, "/Users/gerarddeunercos/Downloads/Patient_08_TCR_Diff_Exp_tumor-blood_06-05-24.qs")
+```

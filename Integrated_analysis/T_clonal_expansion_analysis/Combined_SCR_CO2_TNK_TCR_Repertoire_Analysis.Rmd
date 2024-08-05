@@ -1,0 +1,1574 @@
+---
+title: "Combined_SCR_CO2_TNK_TCR_Repertoire_Analysis"
+author: "Gerard Deuner Cos"
+date: "2024-04-17"
+output: html_document
+---
+
+```{r}
+# load libraries
+library(Seurat)
+library(dplyr)
+library(scRepertoire)
+library(SeuratData)
+library(SeuratDisk)
+library(rhdf5)
+library(scCustomize)
+library(stringr)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(ggalluvial)
+```
+
+```{r}
+# import path variables 
+source("/Users/gerarddeunercos/Documents/cluster1/gdeuner/config.R")
+```
+
+```{r}
+# set figures dir
+#figs.dir <- "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/combined/TNK/TCR/"
+figs.dir <- "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/TFM/Fig3/"
+```
+
+
+```{r}
+###########################################
+# Read raw TCR data from all the patients #
+###########################################
+
+# PATIENT 01
+P01_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_04_05/jobs/01_CD45/01_CD45/outs/per_sample_outs/01_CD45/vdj_t/filtered_contig_annotations.csv"))
+P01_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_04_05/jobs/01_total/01_total/outs/per_sample_outs/01_total/vdj_t/filtered_contig_annotations.csv"))
+P01_S3 <- read.csv(paste0(sp.proj.dir,"/data/SERPENTINE_08_09/jobs/SPE_1_01_C2D1_A_FRESH_1/SPE_1_01_C2D1_A_FRESH_1/outs/per_sample_outs/SPE_1_01_C2D1_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P01_S4 <- read.csv(paste0(sp.proj.dir,"/data/SERPENTINE_08_09/jobs/SPE_1_01_C2D1_A_FRESH_2/SPE_1_01_C2D1_A_FRESH_2/outs/per_sample_outs/SPE_1_01_C2D1_A_FRESH_2/vdj_t/filtered_contig_annotations.csv")) 
+
+
+# PATIENT 02
+P02_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_06_07/jobs/SPE_1_02_SCR_A_FRESH_1/SPE_1_02_SCR_A_FRESH_1/outs/per_sample_outs/SPE_1_02_SCR_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P02_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_10_11/jobs/SPE_1_02_C02_A_FRESH_1/SPE_1_02_C02_A_FRESH_1/outs/per_sample_outs/SPE_1_02_C02_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P02_S3 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_06_07/jobs/SPE_1_02_SCR_A_FRESH_2/SPE_1_02_SCR_A_FRESH_2/outs/per_sample_outs/SPE_1_02_SCR_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+P02_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_10_11/jobs/SPE_1_02_C02_A_FRESH_2/SPE_1_02_C02_A_FRESH_2/outs/per_sample_outs/SPE_1_02_C02_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+  
+# PATIENT 03
+P03_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_10_11/jobs/SPE_1_03_SCR_A_FRESH/SPE_1_03_SCR_A_FRESH/outs/per_sample_outs/SPE_1_03_SCR_A_FRESH/vdj_t/filtered_contig_annotations.csv"))
+#P03_S2 <- read.csv(paste0(sp.proj.dir, "data/SERPENTINE_18_19/jobs/ESP_1_03_EOT_A_FRESH_CD45neg/ESP_1_03_EOT_A_FRESH_CD45neg/outs/per_sample_outs/ESP_1_03_EOT_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv"))
+P03_S3 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_14_15/jobs/SPE_1_03_C02_A_FRESH_C45/SPE_1_03_C02_A_FRESH_C45/outs/per_sample_outs/SPE_1_03_C02_A_FRESH_C45/vdj_t/filtered_contig_annotations.csv"))
+P03_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_18_19/jobs/ESP_1_03_EOT_A_FRESH_CD45pos/ESP_1_03_EOT_A_FRESH_CD45pos/outs/per_sample_outs/ESP_1_03_EOT_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv"))
+  
+# PATIENT 08
+P08_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_22_23/jobs/SPE_1_08_SCR_A_FRESH/SPE_1_08_SCR_A_FRESH/outs/per_sample_outs/SPE_1_08_SCR_A_FRESH/vdj_t/filtered_contig_annotations.csv"))
+P08_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_30_31/jobs/SPE_1_8_C2_A_FRESH_1/SPE_1_8_C2_A_FRESH_1/outs/per_sample_outs/SPE_1_8_C2_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P08_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_30_31/jobs/SPE_1_8_C2_A_FRESH_2/SPE_1_8_C2_A_FRESH_2/outs/per_sample_outs/SPE_1_8_C2_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+  
+# PATIENT 10
+#P10_S1 <- read.csv(paste0(sp.proj.dir, "data/SERPENTINE_28_29/jobs/SPE_1_10_SCR_A_FRESH_CD45neg/SPE_1_10_SCR_A_FRESH_CD45neg/outs/per_sample_outs/SPE_1_10_SCR_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv"))
+P10_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_28_29/jobs/SPE_1_10_SCR_A_FRESH_CD45pos/SPE_1_10_SCR_A_FRESH_CD45pos/outs/per_sample_outs/SPE_1_10_SCR_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv"))
+#P10_S3 <- read.csv(paste0(sp.proj.dir,"data/SERPENTINE_36_37/jobs/SPE_1_10_C2_A_FRESH_CD45neg/SPE_1_10_C2_A_FRESH_CD45neg/outs/per_sample_outs/SPE_1_10_C2_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv")) 
+P10_S4 <- read.csv(paste0(sp.proj.dir,"/data/SERPENTINE_36_37/jobs/SPE_1_10_C2_A_FRESH_CD45pos/SPE_1_10_C2_A_FRESH_CD45pos/outs/per_sample_outs/SPE_1_10_C2_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv")) 
+  
+
+# Create a contigs list
+
+contig_list_TCR <- list(P01_S1, P01_S2, P01_S3, P01_S4,  #P01
+                        P02_S1, P02_S2, P02_S3, P02_S4,  #P02
+                        P03_S1,         P03_S3, P03_S4,  #P03
+                        P08_S1, P08_S2,         P08_S4,  #P08 
+                                P10_S2,         P10_S4)  #P10
+                        
+
+###############
+# Combine TCR #
+###############
+
+combined_tcr <- combineTCR(contig_list_TCR, 
+                ID = c( 
+                  "01_CD45", "01_total", "SPE_1_01_C2D1_A_FRESH_1", "SPE_1_01_C2D1_A_FRESH_2",  #P01
+                  "SPE_1_02_SCR_A_FRESH_1", "SPE_1_02_C02_A_FRESH_1", "SPE_1_02_SCR_A_FRESH_2", "SPE_1_02_C02_A_FRESH_2", #P02
+                  "SPE_1_03_SCR_A_FRESH", "SPE_1_03_C02_A_FRESH_C45", "ESP_1_03_EOT_A_FRESH_CD45pos", #P03
+                  "SPE_1_08_SCR_A_FRESH", "SPE_1_8_C2_A_FRESH_1", "SPE_1_8_C2_A_FRESH_2", #P08
+                  "SPE_1_10_SCR_A_FRESH_CD45pos", "SPE_1_10_C2_A_FRESH_CD45pos" #P10
+                  ), 
+                samples = c(
+                  "SERPENTINE_04_05", "SERPENTINE_04_05", "SERPENTINE_08_09", "SERPENTINE_08_09", #P01
+                  "SERPENTINE_06_07", "SERPENTINE_10_11", "SERPENTINE_06_07", "SERPENTINE_10_11", #P02
+                  "SERPENTINE_10_11", "SERPENTINE_14_15", "SERPENTINE_18_19", #P03
+                  "SERPENTINE_22_23", "SERPENTINE_30_31", "SERPENTINE_30_31", #P08
+                  "SERPENTINE_28_29", "SERPENTINE_36_37" #P10
+                  )
+                )
+
+# rename to match sc
+
+# P01
+combined_tcr$SERPENTINE_04_05_01_CD45$barcode <- str_remove_all(combined_tcr$SERPENTINE_04_05_01_CD45$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_04_05_01_total$barcode <- str_remove_all(combined_tcr$SERPENTINE_04_05_01_total$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+# P02
+combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_06_07_SPE_1_02_SCR_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_10_11_SPE_1_02_C02_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+# P03
+combined_tcr$SERPENTINE_10_11_SPE_1_03_SCR_A_FRESH$barcode <- str_remove_all(combined_tcr$SERPENTINE_10_11_SPE_1_03_SCR_A_FRESH$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_14_15_SPE_1_03_C02_A_FRESH_C45$barcode <- str_remove_all(combined_tcr$SERPENTINE_14_15_SPE_1_03_C02_A_FRESH_C45$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_18_19_ESP_1_03_EOT_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_18_19_ESP_1_03_EOT_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+
+# P08
+combined_tcr$SERPENTINE_22_23_SPE_1_08_SCR_A_FRESH$barcode <- str_remove_all(combined_tcr$SERPENTINE_22_23_SPE_1_08_SCR_A_FRESH$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+# P10
+combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_36_37_SPE_1_10_C2_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_36_37_SPE_1_10_C2_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+
+combined.TCR <- combined_tcr
+```
+
+```{r}
+# visualize TCR data
+combined.TCR
+```
+
+
+```{r}
+# load integrated + annotated TNK seurat object
+
+data <- LoadH5Seurat("/Users/gerarddeunercos/Downloads/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat", meta.data = FALSE, misc = FALSE)
+obs <- h5read("/Users/gerarddeunercos/Downloads/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat", "/meta.data")
+meta <- data.frame(lapply(names(obs), function(x) { 
+  if (length(obs[[x]])==2) 
+    obs[[x]][['categories']][ifelse(obs[[x]][['codes']] >= 0, obs[[x]][['codes']] + 1, NA)]
+  else 
+    as.numeric(obs[[x]])
+}
+), row.names=Cells(data))
+colnames(meta) <- names(obs)
+
+data <- AddMetaData(data,meta)
+```
+
+```{r}
+# remove NK and gamma-delta T populations
+data$Annotation_2.0 %>% unique
+data <- data[,!(data$Annotation_2.0 %in% c("γδ T-like", "Cycling γδ T-like", "CD56hi CD16lo NK", "CD56dim CD16hi NK"))]
+data
+```
+
+```{r}
+# adjust seurat object's cell barcoodes so they match the combined.TCR barcodes
+cell.barcodes <- rownames(data[[]])
+cell.barcodes <- stringr::str_split(cell.barcodes, "_", simplify = TRUE, n = 2)[, 2]
+data <- RenameCells(data, new.names = cell.barcodes)
+```
+
+
+```{r}
+# Combine Expression - join RNA + TCR data
+data <- combineExpression(
+  combined.TCR, 
+  data, 
+  chain = "both",
+  cloneCall="nt", 
+  proportion = FALSE, 
+  cloneSize=c(Single=1, Small=5, Medium=20, Large=50, Hyperexpanded=100))
+```
+
+```{r}
+# quantify clones per sample
+p1 <- clonalQuant(combined.TCR, 
+            cloneCall="strict", 
+            chain = "both", 
+            scale = TRUE) + 
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+p1
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"percent_of_unique_clones_sample.png"), plot = p1, device = "png", width = 8, height = 5, dpi = 300)
+```
+
+
+```{r}
+# examine the relative distribution of clones by abundance
+p2 <- clonalAbundance(combined.TCR, 
+                cloneCall = "strict", 
+                scale = FALSE) + 
+  theme(legend.position = "none") + 
+  clonalAbundance(combined.TCR, 
+                cloneCall = "strict", 
+                scale = TRUE) + 
+  theme(legend.position = "none")
+p2
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"relative_distribution_clones_by_abundance.png"), plot = p2, device = "png", width = 8, height = 5, dpi = 300)
+```
+
+```{r}
+# look at the length distribution of the CDR3 sequences
+p3 <- clonalLength(combined.TCR, 
+             cloneCall="aa", 
+             chain = "both") + 
+  theme(legend.position = "none") + 
+  clonalLength(combined.TCR, 
+             cloneCall="aa", 
+             chain = "both",
+             scale = TRUE) + 
+  theme(legend.position = "none")
+p3 
+```
+```{r}
+ggsave(filename = paste0(figs.dir,"length_distribution_CDR3_sequences.png"), plot = p3, device = "png", width = 8, height = 5, dpi = 300)
+```
+
+```{r}
+# look at clones between samples and changes in dynamics
+p4 <- clonalCompare(combined.TCR, 
+                  top.clones = 10, 
+                  #samples = c("P17B", "P17L"), 
+                  cloneCall="aa", 
+                  graph = "alluvial") + 
+  theme(legend.position = "none") 
+p4
+```
+```{r}
+ggsave(filename = paste0(figs.dir,"changes_in_dynamics.png"), plot = p4, device = "png", width = 8, height = 5, dpi = 300)
+```
+
+What to do:
+TCR:  diversity  proportion. Expansion. Which phenotypes. Change in phenotype. Entropy. 
+Shared repertoire:  phenotypes pre and which phenotype is post. Proportion of expansion before vs post of the same clonotype. Are TCRs in 2nd timepoint new or just expanded from 1st. 
+
+
+```{r}
+# visualize T Cells Annotation
+anno <- DimPlot_scCustom(data, group.by = "Annotation_2.0") +
+  labs(title = "T Cells - Annotation 2.0", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+anno
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"Annotation_2_0_UMAP.png"), plot = anno, device = "png", width = 8, height = 5, dpi = 300)
+```
+
+```{r}
+# visualize TCR clonotypes
+colorblind_vector <- hcl.colors(n=7, palette = "Inferno", fixup = TRUE)
+tcr <- DimPlot_scCustom(data, 
+                           group.by = "cloneSize"
+                           ) +
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)])) + 
+  labs(title = "Clonotypes", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+
+tcr
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"Clonotypes_UMAP.png"), plot = tcr, device = "png", width = 8, height = 5, dpi = 300)
+```
+
+```{r}
+# visualize T Cells Annotation across timepoints
+anno.t0 <- DimPlot_scCustom(data %>% subset(timepoint == "SCR"), group.by = "Annotation_2.0") +
+  labs(title = "Annotation 2.0 - T0/-ICI", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+
+anno.t1 <- DimPlot_scCustom(data %>% subset(timepoint != "SCR"), group.by = "Annotation_2.0") +
+  labs(title = "Annotation 2.0 - T1/+ICI", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+
+p5 <- ggarrange(anno.t0, anno.t1, common.legend = TRUE, legend = "right")
+p5
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"Annotation_2_0_T0_UMAP.png"), plot = anno.t0, device = "png", width = 6, height = 4, dpi = 300)
+ggsave(filename = paste0(figs.dir,"Annotation_2_0_T1_UMAP.png"), plot = anno.t1, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# visualize TCR clonotypes across timepoints
+tcr.t0 <- DimPlot_scCustom(data %>% subset(timepoint == "SCR"), 
+                           group.by = "cloneSize"
+                           ) +
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)])) + 
+  labs(title = "Clonotypes - T0/-ICI", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank(),
+      legend.position="none")
+
+tcr.t1 <- DimPlot_scCustom(data %>% subset(timepoint != "SCR"), 
+                           group.by = "cloneSize"
+                           ) +
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)])) + 
+  labs(title = "Clonotypes - T1/+ICI", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank(),
+      legend.position="none")
+
+
+tcr.t0 + tcr.t1
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"Clonotypes_T0_UMAP.png"), plot = tcr.t0, device = "png", width = 6, height = 4, dpi = 300)
+ggsave(filename = paste0(figs.dir,"Clonotypes_T1_UMAP.png"), plot = tcr.t1, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+
+https://ncborcherding.github.io/vignettes/vignette.html
+
+
+```{r}
+# visualize an overlay of the position of clonally-expanded cells
+data <- SetIdent(data, value="timepoint")
+p5 <- clonalOverlay(data, 
+              reduction = "umap", 
+              freq.cutpoint = 1, 
+              bins = 10, 
+              facet.by = "Condition") + 
+              guides(color = "none") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+p5
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_expansion_overlay.pdf"), plot = p5, device = "pdf", width = 7, height = 4, dpi = 300)
+```
+
+
+```{r}
+# clonal frequency by timepoint
+p6 <- clonalOccupy(data, x.axis = "Condition")
+p6
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_frequency_condition.pdf"), plot = p6, device = "pdf", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# clonal proportion by timepoint
+p7 <- clonalOccupy(data, x.axis = "Condition", proportion = TRUE, label = FALSE)
+p7
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_proportion_condition.pdf"), plot = p7, device = "pdf", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# modify patient variable for plotting
+value_mapping <- c("01" = "P01", "02" = "P02", "03" = "P03", "08" = "P04", "10" = "P05")
+data$patient <- ifelse(data$patient %in% names(value_mapping), value_mapping[data$patient], data$patient)
+```
+
+```{r}
+# clonal frequency by patient
+p8 <- clonalOccupy(data, x.axis = "patient", facet.by = "Condition", proportion=TRUE, label=FALSE)
+p8
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_frequency_patient.pdf"), plot = p8, device = "pdf", width = 6, height = 3, dpi = 300)
+```
+
+```{r}
+# clonal proportion by patient
+p9 <- clonalOccupy(data, x.axis = "patient", proportion = TRUE, label = FALSE)
+p9
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_proportion_patient.pdf"), plot = p9, device = "pdf", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# compute clonal overlap
+p10 <- clonalOverlap(data, 
+              cloneCall = "nt", 
+              method = "raw") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5))
+p10
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_overlap_annotation_2_0.pdf"), plot = p10, device = "pdf", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+clonalOverlap(data %>% subset(timepoint == "SCR"), 
+              cloneCall = "strict", 
+              method = "raw") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5))
+```
+
+```{r}
+clonalOverlap(data%>% subset(timepoint != "SCR"), 
+              cloneCall = "strict", 
+              method = "raw") + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5))
+```
+
+
+```{r}
+library(ggraph)
+p11 <- clonalNetwork(data, 
+              reduction = "umap", 
+              group.by = "Annotation_2.0",
+              filter.clones = NULL,
+              filter.identity = c("CD8 T Effector"),
+              cloneCall = "nt")
+p11
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_dynamics_UMAP.png"), plot = p11, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# Compute clonal diversity
+p12 <- clonalDiversity(combined.TCR, 
+                metrics = c("shannon"),
+                cloneCall = "nt",
+                n.boots = 20, palette = "viridis")
+p12
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_diversity.pdf"), plot = p12, device = "pdf", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# compare clonotypes before and after ICI (holger's plot)
+p13 <- clonalScatter(data, 
+              cloneCall ="nt", 
+              group.by = "Condition",
+              x.axis = "T0/-ICI", 
+              y.axis = "T1/+ICI",
+              dot.size = "total",
+              graph = "proportion",
+              palette = "RdYlGn")
+p13
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"clonal_scatter_condition.pdf"), plot = p13, device = "pdf", width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+# do comparison per patients
+plots <- list()
+for (p in unique(data$patient)){
+  print(p)
+  plot <- clonalScatter(data %>% subset(patient == p), 
+              cloneCall ="gene", 
+              group.by = "Condition",
+              x.axis = "T0/-ICI", 
+              y.axis = "T1/+ICI",
+              dot.size = "total",
+              graph = "proportion",
+              palette = "RdYlGn") + 
+    labs(title = p)
+    plots[[p]] <- plot
+
+}
+plots
+```
+
+
+
+```{r}
+# count unique and shared clonotypes across timepoints
+
+df <- clonalScatter(data, 
+              cloneCall ="ctnt", 
+              group.by = "Condition",
+              x.axis = "T0/-ICI", 
+              y.axis = "T1/+ICI",
+              dot.size = "total",
+              graph = "proportion",
+              palette = "RdYlGn",exportTable = TRUE)
+df
+
+# (taking into account each clonotype once)
+
+t0.unique <- df %>% 
+  filter(`T1/+ICI` == 0) %>%
+  nrow() # T0 unique: 8523
+
+t1.unique <- df %>% 
+  filter(`T0/-ICI` == 0) %>%
+  nrow() # T1 unique: 7681
+
+shared <- df %>% 
+  filter(`T1/+ICI` != 0, `T0/-ICI` != 0) %>%
+  nrow() # T0/1 shared: 1663
+
+total <- df %>% 
+  nrow() # Total: 17867
+
+t0.unique + t1.unique + shared
+```
+
+
+```{r}
+# clones shared accross timepoints
+shared <- data@meta.data %>% 
+  select(Condition, CTaa) %>% 
+  unique()
+shared_clones <- table(shared$CTaa) %>% 
+  as.data.frame() %>% 
+  filter(Freq > 1) %>% #freq=2 means they are shared 
+  pull(Var1)
+```
+
+```{r results='markup'}
+data@meta.data[, c("Condition", "clonalFrequency", "cloneSize", "CTaa")] %>% 
+  unique() %>% 
+  filter(!is.na(cloneSize)) %>% 
+  filter(CTaa %in% shared_clones) %>% 
+  arrange(desc(clonalFrequency)) %>% 
+  DT::datatable(rownames = FALSE)
+```
+
+
+```{r}
+Idents(data) <- "CTaa"
+hl <- CellsByIdentities(data, idents = c("CAVRDDTGSQGNLIF_CARGDDPKGRGTEAFF", "CVVNPADDYKLSF_CSARDPTVTGYGYTF", "CAVSKNQAGTALIF_CASSSSGGYEQYF"))
+p14 <- DimPlot(
+  data,
+  split.by = "Condition",
+  cells.highlight = hl,
+  cols.highlight = c("orange", "salmon", "red"),
+  sizes.highlight = 1,
+  ncol = 2
+) +
+  NoLegend() + 
+  labs(x = "UMAP 1", y = "UMAP 2") + 
+    theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+p14
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"top3clones_shared_decrease_condition.png"), plot = p14, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+Idents(data) <- "CTaa"
+hl <- CellsByIdentities(data, idents = c("CLVGPLSYNTDKLIF_CASSQARNNEQFF", "CAFMKKDYGQNFVF_CASSQGQGARWTEAFF", "CAGRLIKAAGNKLTF_CASSAPGRENTGELFF"))
+p15 <- DimPlot(
+  data,
+  split.by = "Condition",
+  cells.highlight = hl,
+  cols.highlight = c("lightblue", "cyan", "blue"),
+  sizes.highlight = 1,
+  ncol = 2
+) +
+  NoLegend() + 
+  labs(x = "UMAP 1", y = "UMAP 2") + 
+    theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+p15
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"top3clones_shared_increase_condition.png"), plot = p15, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# check phenotype of these top 6 expanded clonotypes
+top6clones <- c("CAVRDDTGSQGNLIF_CARGDDPKGRGTEAFF", "CVVNPADDYKLSF_CSARDPTVTGYGYTF", "CAVSKNQAGTALIF_CASSSSGGYEQYF", "CLVGPLSYNTDKLIF_CASSQARNNEQFF", "CAFMKKDYGQNFVF_CASSQGQGARWTEAFF", "CAGRLIKAAGNKLTF_CASSAPGRENTGELFF")
+  
+df <- data@meta.data %>% 
+  select(Condition, CTaa, Annotation_2.0) %>%
+  filter(CTaa %in% top6clones)
+
+
+p16 <- ggplot(df, aes(x = CTaa, y = after_stat(count), fill = Annotation_2.0)) +
+  geom_bar(position="fill") +
+  facet_wrap(~ Condition) +
+  labs(x = "Clonotypes", y = "Proportion", fill = "Cell Type") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.box.margin = margin(10, 10, 10, 10)) + 
+    scale_x_discrete(labels=c('top1 dec. cl', 'top2 dec. cl', 'top3 dec. cl', 'top1 inc. cl', 'top2 inc. cl', 'top3 inc. cl'))
+p16
+  
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"top6clones_barplot.png"), plot = p16, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+
+Blood - Tumor TCR matching Analysis
+
+```{r}
+# inspect data
+head(data@meta.data$CTnt) # combined expression using both chains, therefore we need to split them between alpha and beta chain
+data$ctnt_TRA <- substr(data@meta.data$CTnt, 1, regexpr("_", data@meta.data$CTnt) - 1)
+data$ctnt_TRB <- sub(".*_", "", data@meta.data$CTnt)
+```
+
+
+```{r}
+# read matching blood TCRs from files
+
+# P01
+p01_pre_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE01_tumour_overlap_blood_pre.csv")
+p01_post_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE01_tumour_overlap_blood_post.csv")
+
+# P02
+p02_pre_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE02_tumour_overlap_blood_pre.csv")
+p02_post_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE02_tumour_overlap_blood_post.csv")
+
+# P03
+p03_pre_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE03_tumour_overlap_blood_pre.csv")
+p03_post_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE03_tumour_overlap_blood_post.csv")
+
+# P08
+p08_pre_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE08_tumour_overlap_blood_pre.csv")
+p08_post_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE08_tumour_C02_overlap_blood_C02.csv")
+
+# P10
+p10_pre_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE10_tumour_overlap_blood_pre.csv")
+p10_post_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE10_tumour_overlap_blood_post.csv")
+```
+
+
+```{r}
+# create specific annotation for this analysis
+data@meta.data <- data@meta.data %>%
+  dplyr::mutate(cell_type = 
+    if_else(grepl("CD4 T", Annotation_2.0), "CD4 T",
+    if_else(grepl("CD8 T", Annotation_2.0), "CD8 T", Annotation_2.0))) %>%
+  dplyr::mutate(cell_type = if_else(Annotation_2.0 == "CD4 T Regulatory", "Treg", cell_type))
+```
+
+```{r}
+data$cell_type %>% unique()
+```
+
+```{r}
+# plot umaps
+DimPlot_scCustom(data, group.by = "cell_type", figure_plot = T, ) +
+  labs(title = "Cell Types", x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank()) 
+```
+
+```{r}
+# check matchings
+
+# P01
+unname(data$ctnt_TRB) %in% p01_pre_blood_tcr$cdr3_nt %>% table()
+unname(data$ctnt_TRB) %in% p01_post_blood_tcr$cdr3_nt %>% table()
+
+# P02
+unname(data$ctnt_TRB) %in% p02_pre_blood_tcr$cdr3_nt %>% table()
+unname(data$ctnt_TRB) %in% p02_post_blood_tcr$cdr3_nt %>% table()
+
+# P03
+unname(data$ctnt_TRB) %in% p03_pre_blood_tcr$cdr3_nt %>% table()
+unname(data$ctnt_TRB) %in% p03_post_blood_tcr$cdr3_nt %>% table()
+
+# P08
+unname(data$ctnt_TRB) %in% p08_pre_blood_tcr$cdr3_nt %>% table()
+unname(data$ctnt_TRB) %in% p08_post_blood_tcr$cdr3_nt %>% table()
+
+# P10
+unname(data$ctnt_TRB) %in% p10_pre_blood_tcr$cdr3_nt %>% table()
+unname(data$ctnt_TRB) %in% p10_post_blood_tcr$cdr3_nt %>% table()
+```
+
+```{r}
+# add flag to patient-specific sobj indicating whether the tcr is found also in blood
+data$blood_pre <- rep(F, nrow(data@meta.data))
+data$blood_post <- rep(F, nrow(data@meta.data))
+data$blood <- rep(F, nrow(data@meta.data))
+
+data$blood_pre <- ifelse(data$ctnt_TRB %in% p01_pre_blood_tcr$cdr3_nt, T, data$blood_pre)
+data$blood_pre <- ifelse(data$ctnt_TRB %in% p02_pre_blood_tcr$cdr3_nt, T, data$blood_pre)
+data$blood_pre <- ifelse(data$ctnt_TRB %in% p03_pre_blood_tcr$cdr3_nt, T, data$blood_pre)
+data$blood_pre <- ifelse(data$ctnt_TRB %in% p08_pre_blood_tcr$cdr3_nt, T, data$blood_pre)
+data$blood_pre <- ifelse(data$ctnt_TRB %in% p10_pre_blood_tcr$cdr3_nt, T, data$blood_pre)
+
+data$blood_post <- ifelse(data$ctnt_TRB %in% p01_post_blood_tcr$cdr3_nt, T, data$blood_post)
+data$blood_post <- ifelse(data$ctnt_TRB %in% p02_post_blood_tcr$cdr3_nt, T, data$blood_post)
+data$blood_post <- ifelse(data$ctnt_TRB %in% p03_post_blood_tcr$cdr3_nt, T, data$blood_post)
+data$blood_post <- ifelse(data$ctnt_TRB %in% p08_post_blood_tcr$cdr3_nt, T, data$blood_post)
+data$blood_post <- ifelse(data$ctnt_TRB %in% p10_post_blood_tcr$cdr3_nt, T, data$blood_post)
+
+data$blood <- ifelse((data$blood_pre | data$blood_post) == T, T, F)
+
+data$blood_pre %>% table()
+data$blood_post %>% table()
+data$blood %>% table()
+```
+
+```{r}
+# create patient-specific objects
+p01.data <- data %>% subset(patient == "01")
+p02.data <- data %>% subset(patient == "02")
+p03.data <- data %>% subset(patient == "03")
+p08.data <- data %>% subset(patient == "08")
+p10.data <- data %>% subset(patient == "10")
+```
+
+```{r}
+# add flag to patient-specific sobj indicating whether the tcr is found also in blood
+
+# P01
+p01.data$blood_pre <- ifelse(p01.data$ctnt_TRB %in% p01_pre_blood_tcr$cdr3_nt, T, F)
+p01.data$blood_post <- ifelse(p01.data$ctnt_TRB %in% p01_post_blood_tcr$cdr3_nt, T, F)
+
+# P02
+p02.data$blood_pre <- ifelse(p02.data$ctnt_TRB %in% p02_pre_blood_tcr$cdr3_nt, T, F)
+p02.data$blood_post <- ifelse(p02.data$ctnt_TRB %in% p02_post_blood_tcr$cdr3_nt, T, F)
+
+# P03
+p03.data$blood_pre <- ifelse(p03.data$ctnt_TRB %in% p03_pre_blood_tcr$cdr3_nt, T, F)
+p03.data$blood_post <- ifelse(p03.data$ctnt_TRB %in% p03_post_blood_tcr$cdr3_nt, T, F)
+
+# P08
+p08.data$blood_pre <- ifelse(p08.data$ctnt_TRB %in% p08_pre_blood_tcr$cdr3_nt, T, F)
+p08.data$blood_post <- ifelse(p08.data$ctnt_TRB %in% p08_post_blood_tcr$cdr3_nt, T, F)
+
+# P10
+p10.data$blood_pre <- ifelse(p10.data$ctnt_TRB %in% p10_pre_blood_tcr$cdr3_nt, T, F)
+p10.data$blood_post <- ifelse(p10.data$ctnt_TRB %in% p10_post_blood_tcr$cdr3_nt, T, F)
+```
+
+```{r}
+# take tumor-blood shared tcrs by patient and timepoints
+
+# P01
+p01.pre <- p01.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_pre") %>%
+  filter(blood_pre == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p01.pre, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE01_tumour_overlap_blood_pre_phenotype.csv")
+write.csv(p01.pre %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE01_tumour_overlap_blood_pre_phenotype_distinct.csv")
+
+
+p01.post <- p01.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_post") %>%
+  filter(blood_post == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p01.post, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE01_tumour_overlap_blood_post_phenotype.csv")
+write.csv(p01.post %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE01_tumour_overlap_blood_post_phenotype_distinct.csv")
+
+# P02
+p02.pre <- p02.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_pre") %>%
+  filter(blood_pre == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p02.pre, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE02_tumour_overlap_blood_pre_phenotype.csv")
+write.csv(p02.pre %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE02_tumour_overlap_blood_pre_phenotype_distinct.csv")
+
+p02.post <- p02.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_post") %>%
+  filter(blood_post == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p02.post, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE02_tumour_overlap_blood_post_phenotype.csv")
+write.csv(p02.post %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE02_tumour_overlap_blood_post_phenotype_distinct.csv")
+
+# P03
+p03.pre <- p03.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_pre") %>%
+  filter(blood_pre == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p03.pre, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE03_tumour_overlap_blood_pre_phenotype.csv")
+write.csv(p03.pre %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE03_tumour_overlap_blood_pre_phenotype_distinct.csv")
+
+p03.post <- p03.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_post") %>%
+  filter(blood_post == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p03.post, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE03_tumour_overlap_blood_post_phenotype.csv")
+write.csv(p03.post %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE03_tumour_overlap_blood_post_phenotype_distinct.csv")
+
+# P08
+p08.pre <- p08.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_pre") %>%
+  filter(blood_pre == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p08.pre, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE08_tumour_overlap_blood_C01_phenotype.csv")
+write.csv(p08.pre %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE08_tumour_overlap_blood_C01_phenotype_distinct.csv")
+
+p08.post <- p08.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_post") %>%
+  filter(blood_post == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p08.post, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE08_tumour_overlap_blood_C02_phenotype.csv")
+write.csv(p08.post %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE08_tumour_overlap_blood_C02_phenotype_distinct.csv")
+
+# P10
+p10.pre <- p10.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_pre") %>%
+  filter(blood_pre == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p10.pre, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE10_tumour_overlap_blood_pre_phenotype.csv")
+write.csv(p10.pre %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE10_tumour_overlap_blood_pre_phenotype_distinct.csv")
+
+p10.post <- p10.data@meta.data %>%
+  select("CTnt", "ctnt_TRB", "cell_type", "blood_post") %>%
+  filter(blood_post == T) %>%
+  select("ctnt_TRB", "cell_type") %>%
+  dplyr::rename(CTnt = ctnt_TRB, Phenotype = cell_type)
+write.csv(p10.post, file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE10_tumour_overlap_blood_post_phenotype.csv")
+write.csv(p10.post %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlapping_clonotypes_phenotypes/SPE10_tumour_overlap_blood_post_phenotype_distinct.csv")
+``` 
+
+```{r}
+# check whether the expanded clones within the same patient and timepoint have different phenotypes (don't expect - control)
+p01.pre %>%
+  distinct() %>% View()
+
+p01_pre_blood_tcr$cdr3_nt %>% length()
+
+janitor::get_dupes(p01.pre %>% distinct(), "ctnt_TRB") %>% select("ctnt_TRB", "cell_type")
+```
+
+```{r}
+# save object 
+qsave(data, "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/outputdata/combined/Combined_SCR_C02_TCR_tumour_blood_30-04-24.qs")
+qsave(data, "/Users/gerarddeunercos/Downloads/Combined_SCR_C02_TCR_tumour_blood_30-04-24.qs")
+```
+
+
+# Plots for Poster / Thesis
+
+```{r}
+library(qs)
+data <- qread("/Users/gerarddeunercos/Downloads/Combined_SCR_C02_TCR_tumour_blood_30-04-24.qs")
+```
+
+```{r}
+plot <- clonalScatter(data, 
+              cloneCall ="nt", 
+              group.by = "Condition",
+              y.axis = "T0/-ICI", 
+              x.axis = "T1/+ICI",
+              dot.size = "total",
+              graph = "proportion",
+              palette = "RdYlGn") 
+plot
+```
+
+```{r}
+# custom scatter plot
+
+df <- data@meta.data
+df <- df %>%
+  select(ctnt_TRB, Condition, clonalFrequency, clonalProportion, patient, cloneSize)
+df
+
+y.axis <- "T0/-ICI" 
+x.axis <- "T1/+ICI"
+
+metadata.df <- df %>% select(ctnt_TRB, patient, cloneSize)
+#df$CTnt <- as.character(df$CTnt)
+
+x.df <- as.data.frame(table(as.character(filter(df, Condition == x.axis)[,c("ctnt_TRB")])))
+colnames(x.df)[2] <- x.axis
+y.df <- as.data.frame(table(filter(df, Condition == y.axis)[,"ctnt_TRB"]))
+colnames(y.df)[2] <- y.axis
+mat <- merge(x.df, y.df, by = "Var1", all = TRUE)
+colnames(mat)[1] <- "CTnt"
+print(mat)
+dim(mat)
+
+#patient.df$CTnt <- paste0("NA_", sub("^[^_]*_", "", df$CTnt))
+print(metadata.df)
+colnames(metadata.df)[1] <- "CTnt"
+dim(metadata.df)
+mat$CTnt <- as.character(mat$CTnt)
+
+mat <- left_join(mat, metadata.df, by = "CTnt")
+
+mat[is.na(mat)] <- 0
+labeling <- unique(c(x.axis, y.axis))
+  
+mat[,"class"] <- NA
+mat[,"sum"] <- rowSums(mat[,labeling])
+  
+#Assigning class based on x and y-axis counts
+for (i in seq_along(labeling)) {
+  if (length(labeling) > 2) {
+    mat[,"class"] <- ifelse(mat[,labeling[i]] == 1 & rowSums(mat[,labeling[-i]]) == 0, 
+                            paste0(labeling[i], ".singlet"), #if
+                            mat[,"class"]) #else
+    mat[,"class"] <- ifelse(mat[,labeling[i]] > 1 & rowSums(mat[,labeling[-i]]) == 0, 
+                            paste0(labeling[i], ".expanded"), #if
+                            mat[,"class"]) #else
+  } else if (length(labeling) == 2) {
+    mat[,"class"] <- ifelse(mat[,labeling[i]] == 1 & mat[,labeling[-i]] == 0, 
+                            paste0(labeling[i], ".singlet"), #if
+                            mat[,"class"]) #else
+    mat[,"class"] <- ifelse(mat[,labeling[i]] > 1 & mat[,labeling[-i]] == 0, 
+                            paste0(labeling[i], ".expanded"), #if
+                            mat[,"class"]) #else
+  }
+}
+#Adding dual-expanded class
+mat[,"class"] <- ifelse(mat[,y.axis] >= 1 & mat[,x.axis] >= 1, paste0("dual.expanded"), mat[,"class"])
+
+#Remove NA clones
+mat <- mat %>%
+    filter(CTnt != "NA")
+
+#Calculating relative proportion
+#mat[,paste0(x.axis, ".fraction")] <- mat[,x.axis]/sum(mat[,x.axis])
+#mat[,paste0(y.axis, ".fraction")] <- mat[,y.axis]/sum(mat[,y.axis])
+#mat[,"total_sum.x"] <- sum(mat[,x.axis])
+#mat[,"total_sum.y"] <- sum(mat[,y.axis])
+
+# get unique clone counts per patient
+mat.unique <- mat %>%
+  distinct() %>%
+  group_by(patient) %>%
+  mutate(
+    patient_sum = sum(!!sym(x.axis), na.rm = TRUE) + sum(!!sym(y.axis), na.rm = TRUE)
+  )
+mat <- mat %>%
+  left_join(mat.unique %>% select(patient, CTnt, patient_sum), by = c("patient", "CTnt"))
+
+# get unique clone counts per patient and timepoint
+mat.unique <- mat %>%
+  distinct() %>%
+  group_by(patient, timepoint) %>%
+  mutate(
+    patient_tp_sum = sum(!!sym(x.axis), na.rm = TRUE) + sum(!!sym(y.axis), na.rm = TRUE)
+  )
+mat <- mat %>%
+  left_join(mat.unique %>% select(patient, CTnt, patient_tp_sum, ), by = c("patient", "timepoint", "CTnt"))
+
+mat <- mat %>%
+  group_by(patient) %>%
+  mutate(
+    !!paste0(x.axis, ".fraction") := !!sym(x.axis) / patient_sum,
+    !!paste0(y.axis, ".fraction") := !!sym(y.axis) / patient_sum
+  ) %>%
+  ungroup()
+
+# mat <- mat %>%
+#   group_by(patient) %>%
+#   mutate(Sum_Clono = sum(get(x.axis))) %>%
+#   ungroup()
+# 
+# # PROBLEM WITH PROPS IT IS COMPUTED TAKING INTO ACCOUNT RELATIVE PROP OF A SPECIFIC COPY TO ALL COPIES OF ALL CLONES
+# # GROUP BY CTNT
+# mat <- mat %>%
+#   mutate(
+#     !!paste0(x.axis, ".fraction") := ifelse(Sum_Clono == 0, 0, !!sym(x.axis) / Sum_Clono),
+#     !!paste0(y.axis, ".fraction") := ifelse(Sum_Clono == 0, 0, !!sym(y.axis) / Sum_Clono)
+#   )
+
+
+#Altering the graphing parameters
+graph <- "proportion"
+if (graph == "proportion") {
+  x <- mat[,paste0(x.axis, ".fraction")]
+  y <- mat[,paste0(y.axis, ".fraction")]
+}
+dot.size <- "total"
+if (dot.size != "total") {
+  size <- mat[,dot.size]
+} else { 
+  mat[,"size"] <- mat[,"sum"] 
+}
+
+mat <- mat[mat$CTnt != "NA", ]
+print(mat)
+```
+
+```{r}
+# Define the RGB values
+rgb_values <- list(
+  c(0.9139561707035756, 0.36239907727797, 0.27935409457900806),
+  c(0.9934640522875817, 0.7477124183006535, 0.4352941176470587),
+  c(0.998077662437524, 0.9992310649750096, 0.7460207612456747),
+  c(0.7477124183006538, 0.8980392156862746, 0.6274509803921569),
+  c(0.3280276816608997, 0.6805074971164936, 0.6802768166089965)
+)
+
+# Function to convert RGB to hex
+rgb_to_hex <- function(rgb) {
+  rgb <- rgb * 255
+  rgb <- round(rgb)
+  rgb <- as.character(sprintf("#%02X%02X%02X", rgb[1], rgb[2], rgb[3]))
+  return(rgb)
+}
+
+# Convert all RGB values to hex
+hex_colors <- sapply(rgb_values, rgb_to_hex)
+
+# Print hex colors
+print(hex_colors)
+```
+
+
+
+```{r}
+library(RColorBrewer)
+plot <- ggplot(mat, aes(x = `T1/+ICI.fraction`, y = `T0/-ICI.fraction`, color = class, fill = patient)) + 
+  theme_classic() + 
+  xlab(x.axis) + 
+  ylab(y.axis) + 
+  labs(size = "Clone Size", color = "Class", fill = "Patient") +  
+  geom_abline(slope = 1, intercept = 0, alpha = 0.4, lty = 2) + 
+  scale_y_sqrt() + 
+  scale_x_sqrt() +
+  geom_point(aes(size = size), shape = 21, stroke = .6) + 
+  scale_color_manual(values=c("#000033", "#993300", "#660000", "#660066","#330033")) + 
+  scale_fill_manual(values = hex_colors, labels = c("P01", "P02", "P03", "P04", "P05"))
+plot
+```
+
+
+```{r}
+ggsave(filename = paste0("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/TFM/Fig3/Timepoints_scatterplot.pdf"), plot = plot, device = "pdf", width = 5, height = 4, dpi = 600)
+```
+
+```{r}
+# 1. Convert the metadata to a data.frame
+metadata <- data@meta.data
+
+# 2. Remove duplicates based on 'Ctnt' and 'Annotation_2.0' columns
+unique_metadata <- metadata[!duplicated(metadata[, c("CTnt", "Annotation_2.0")]), ]
+
+# 3. Subset the Seurat object using the filtered metadata
+data2 <- subset(data, cells = rownames(unique_metadata))
+
+# Check the dimensions of the original and filtered Seurat object
+print(dim(data))
+print(dim(data2))
+```
+
+```{r}
+data$Annotation_2.0 %>% unique()
+```
+
+
+```{r}
+data3 <- subset(data2, subset = Annotation_2.0 %in% c("CD4 T Follicular Helper","CD8 T TRM PreExhausted"))
+```
+
+
+```{r}
+plot2 <- clonalOccupy(data3, x.axis = "Condition", facet.by = "Annotation_2.0", label=F, proportion = T) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + theme(legend.position = "none")
+plot2
+```
+
+```{r}
+ggsave(filename = paste0("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/ISCO24_poster/Fig3/expansion_celltypes_across_timepoints.png"), plot = plot2, device = "png", width = 5, height = 3.5, dpi = 600)
+```
+
+```{r}
+plot3 <- clonalOccupy(data, x.axis = "Annotation_2.0", facet.by = "Condition", label=F, proportion = T) + 
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1)) + 
+  theme(legend.position = "none") +  
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), 
+        axis.text.y = element_text(color = "black"))
+plot3
+```
+
+```{r}
+data@meta.data %>% group_by(CTnt) %>% summarise(count = n()) %>% arrange(desc(count))
+```
+
+```{r}
+ggsave(filename = paste0("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/TFM/Fig3/phenotype_expansion_barplot.pdf"), plot = plot3, device = "pdf", width = 5, height = 5, dpi = 300)
+```
+
+
+```{r}
+# plot without the outlier
+clonalOccupy(data %>% subset(subset = CTnt != "TGCGCTGTGAGAGATGACACTGGAAGCCAAGGAAATCTCATCTTT_TGTGCCAGGGGGGATGATCCGAAGGGGCGGGGGACTGAAGCTTTCTTT"), x.axis = "Annotation_2.0", facet.by = "Condition", label=F, proportion = T) + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=1)) + 
+  theme(legend.position = "none") +  
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), 
+        axis.text.y = element_text(color = "black"))
+```
+```{r}
+# venn diagram to check shared expanded clones across timepoints
+library(VennDiagram)
+
+# Example data
+T0.clones <- data@meta.data %>% filter(timepoint == "SCR") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+T1.clones <- data@meta.data %>% filter(timepoint != "SCR") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+
+print(paste("T0 Expanded Clones:", length(T0.clones)))
+print(paste("T1 Expanded Clones:", length(T1.clones)))
+
+# Create Venn diagram
+venn <- venn.diagram(
+  x = list(T0.clones, T1.clones),
+  category.names= c("T0/-ICI", "T1/+ICI"),
+  filename = NULL,
+  output=TRUE, 
+  fill = c("coral", "darkviolet"),
+  alpha = c(0.5, 0.5)
+)
+
+pdf(file=paste0(figs.dir,"venn.pdf"))
+    grid.draw(venn)
+dev.off()
+```
+
+```{r}
+# observe densities in expansion across timepoints
+Idents(data) <- data$Annotation_2.0
+clonalOverlay(data,
+              reduction = "umap",
+              freq.cutpoint = 1, 
+              bins = 10, 
+              facet.by = "Condition") + 
+              guides(color = "none")
+```
+
+```{r}
+# export shared clones between T0 and T1
+shared.clones <- clonalNetwork(data, 
+                               reduction = "umap", 
+                               group.by = "Condition",
+                               cloneCall = "nt", 
+                               exportClones = TRUE)
+shared.clones
+```
+
+```{r}
+# compare clones between T0 and T1
+
+df <- data@meta.data %>% 
+  filter(clonalFrequency > 1) %>% # select expanded clones
+  select(CTnt, subproject, patient, Condition, Annotation_2.0) %>%
+  group_by(CTnt) %>%
+  filter(all(c("T0/-ICI", "T1/+ICI") %in% Condition)) %>% # keep clones shared across timepoints
+  ungroup() %>%
+  group_by(CTnt, Annotation_2.0, Condition, patient) %>%
+  count() %>%
+  ungroup() %>% 
+  rename(Freq = n) %>% # compute their frequency in each timepoint
+  filter(CTnt != "NA") %>%
+#  filter(Annotation_2.0 %in% c("CD4 T Central Memory", "CD4 T CM/EarlyActivated", "CD4 T Follicular Helper", "CD4 T Helper-like", "CD4 T ISG+", "CD4 T Regulatory")) %>%
+  filter(Annotation_2.0 %in% c("CD4 T Central Memory", "CD4 T Follicular Helper", "CD8 T TRM Effector", "CD8 T TRM PreExhausted", "CD8 T TRM Exhausted")) %>%
+  distinct(CTnt, Condition, .keep_all = TRUE)# keep unique clones
+  
+
+df$stratum <- df$Annotation_2.0#factor(df$Annotation_2.0, levels = c("CD4 T Central Memory", "CD4 T CM/EarlyActivated", "CD4 T Follicular Helper, CD4 T Helper-like", "CD4 T ISG+", "CD4 T Regulatory"))
+palette <- c('#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#e6550d', '#fd8d3c', '#fdae6b', '#fdd0a2', '#31a354', '#74c476', '#a1d99b', '#c7e9c0', '#756bb1', '#9e9ac8', '#bcbddc', '#dadaeb', '#636363', '#969696', '#bdbdbd', '#d9d9d9')
+#colors <- c("#24B700", "#8CAB01", "#F8766D", "#E18A00", "#BE9C00")
+colors <- palette[c(2,3,13,15,14)]
+colors
+df$stratum %>% unique()
+```
+
+```{r}
+library(tidyr)
+df$CTnt <- as.factor(df$CTnt)
+df$stratum <- as.factor(df$stratum)
+df$Annotation_2.0 <- NULL
+new_order <- c(c("CD4 T Central Memory", "CD4 T Follicular Helper", "CD8 T TRM Effector", "CD8 T TRM PreExhausted", "CD8 T TRM Exhausted"))
+df$stratum <- factor(df$stratum, levels = new_order)
+
+is_alluvia_form(df, key = Condition, value = stratum, id = CTnt)
+
+alluviaplot <- ggplot(data = df, aes(x = Condition, y = Freq, stratum = stratum, alluvium = CTnt, fill = stratum, label = stratum)) +
+      geom_flow(stat = "alluvium", knot.pos = 1/4, aes.flow = "forward") + 
+      geom_stratum() +
+      theme_minimal() +
+      theme(legend.position = "bottom", legend.title=element_blank()) +
+      scale_linetype_manual(values = c("blank", "solid")) +
+      scale_fill_manual(values = colors) + 
+      xlab("") +
+      ylab("Unique shared TCRs")
+
+alluviaplot
+```
+
+```{r}
+ggsave(filename = paste0("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/TFM/Fig3/alluviaplot_small.pdf"), plot = alluviaplot, device = "pdf", width = 3, height = 3, dpi = 300)
+ggsave(filename = paste0("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/TFM/Fig3/alluviaplot_large.pdf"), plot = alluviaplot, device = "pdf", width = 8, height = 6, dpi = 300)
+```
+
+
+```{r}
+# check overlap
+clonalOverlap(data %>% subset(patient == "08"), 
+              cloneCall = "nt", 
+              method = "raw") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+```{r}
+
+plot4 <- clonalOccupy(data %>% subset(subset = patient == "08"), x.axis = "Annotation_2.0", facet.by = "Condition", label=F, proportion = T) + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=1)) + 
+  theme(legend.position = "none") +  
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), 
+        axis.text.y = element_text(color = "black"))
+plot4
+
+```
+
+```{r}
+ggsave(filename = paste0("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/figures/ISCO24_poster/Fig6/P08_phenotype_expansion_barplot.pdf"), plot = plot4, device = "pdf", width = 5, height = 3.5, dpi = 600)
+```
+
+```{r}
+plot5 <- clonalOccupy(data %>% subset(subset = patient == "08"), x.axis = "Annotation_2.0", facet.by = "Condition", label=F, proportion = T) + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=1)) + 
+  theme(legend.position = "none") +  
+  coord_flip() + 
+  theme(axis.title.y=element_blank(), 
+        axis.text.y = element_text(color = "black"))
+plot5
+```
+
+
+```{r}
+clonalOccupy(data, x.axis = "Condition", label=F, proportion = F)
+  #theme(legend.position = "none")
+```
+
+```{r}
+# count unique and shared clonotypes across timepoints
+
+df <- clonalScatter(data, 
+              cloneCall ="ctnt", 
+              group.by = "Condition",
+              x.axis = "T0/-ICI", 
+              y.axis = "T1/+ICI",
+              dot.size = "total",
+              graph = "proportion",
+              palette = "RdYlGn",exportTable = TRUE)
+df
+
+# (taking into account each clonotype once)
+
+t0.unique <- df %>% 
+  filter(`T1/+ICI` == 0) %>%
+  nrow() # T0 unique: 10813
+
+t1.unique <- df %>% 
+  filter(`T0/-ICI` == 0) %>%
+  nrow() # T1 unique: 9249
+
+shared <- df %>% 
+  filter(`T1/+ICI` != 0, `T0/-ICI` != 0) %>%
+  nrow() # T0/1 shared: 1266
+
+total <- df %>% 
+  nrow() # Total: 21328
+
+t0.unique + t1.unique + shared
+```
+
+
+```{r}
+# clones shared accross timepoints
+shared <- data@meta.data %>% 
+  select(Condition, CTnt) %>% 
+  unique()
+shared_clones <- table(shared$CTnt) %>% 
+  as.data.frame() %>% 
+  filter(Freq > 1) %>% #freq=2 means they are shared 
+  pull(Var1)
+```
+
+```{r results='markup'}
+data@meta.data[, c("Condition", "clonalFrequency", "cloneSize", "CTnt")] %>% 
+  unique() %>% 
+  filter(!is.na(cloneSize)) %>% 
+  filter(CTnt %in% shared_clones) %>% 
+  arrange(desc(clonalFrequency)) %>% 
+  DT::datatable(rownames = FALSE)
+```
+
+
+```{r}
+Idents(data) <- "CTnt"
+hl <- CellsByIdentities(data, idents = c("TGCGCTGTGAGAGATGACACTGGAAGCCAAGGAAATCTCATCTTT_TGTGCCAGGGGGGATGATCCGAAGGGGCGGGGGACTGAAGCTTTCTTT", "TGTGTGGTGAACCCGGCGGACGACTACAAGCTCAGCTTT_TGCAGTGCTAGAGACCCTACCGTAACGGGCTATGGCTACACCTTC", "TGTGCTGTGAGTAAGAACCAGGCAGGAACTGCTCTGATCTTT_TGTGCCAGCAGCTCTAGCGGGGGCTACGAGCAGTACTTC"))
+p14 <- DimPlot(
+  data,
+  split.by = "Condition",
+  cells.highlight = hl,
+  cols.highlight = c("orange", "salmon", "red"),
+  sizes.highlight = 1,
+  ncol = 2
+) +
+  NoLegend() + 
+  labs(x = "UMAP 1", y = "UMAP 2") + 
+    theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+p14
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"top3clones_shared_decrease_condition.png"), plot = p14, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+Idents(data) <- "CTnt"
+hl <- CellsByIdentities(data, idents = c("TGCCTCGTGGGTCCCTTATCTTATAACACCGACAAGCTCATCTTT_TGTGCCAGCAGCCAAGCCAGAAACAATGAGCAGTTCTTC", "TGTGCTTTCATGAAGAAGGACTATGGTCAGAATTTTGTCTTT_TGTGCCAGCAGCCAAGGGCAGGGGGCTAGGTGGACTGAAGCTTTCTTT", "TGTGCTGGGAGACTGATCAAAGCTGCAGGCAACAAGCTAACTTTT_TGTGCCAGCAGCGCCCCGGGACGTGAGAACACCGGGGAGCTGTTTTTT"))
+p15 <- DimPlot(
+  data,
+  split.by = "Condition",
+  cells.highlight = hl,
+  cols.highlight = c("lightblue", "cyan", "blue"),
+  sizes.highlight = 1,
+  ncol = 2
+) +
+  NoLegend() + 
+  labs(x = "UMAP 1", y = "UMAP 2") + 
+    theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank())
+p15
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"top3clones_shared_increase_condition.png"), plot = p15, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# check phenotype of these top 6 expanded clonotypes
+top6clones <- c("TGCGCTGTGAGAGATGACACTGGAAGCCAAGGAAATCTCATCTTT_TGTGCCAGGGGGGATGATCCGAAGGGGCGGGGGACTGAAGCTTTCTTT", "TGTGTGGTGAACCCGGCGGACGACTACAAGCTCAGCTTT_TGCAGTGCTAGAGACCCTACCGTAACGGGCTATGGCTACACCTTC", "TGTGCTGTGAGTAAGAACCAGGCAGGAACTGCTCTGATCTTT_TGTGCCAGCAGCTCTAGCGGGGGCTACGAGCAGTACTTC", "TGCCTCGTGGGTCCCTTATCTTATAACACCGACAAGCTCATCTTT_TGTGCCAGCAGCCAAGCCAGAAACAATGAGCAGTTCTTC", "TGTGCTTTCATGAAGAAGGACTATGGTCAGAATTTTGTCTTT_TGTGCCAGCAGCCAAGGGCAGGGGGCTAGGTGGACTGAAGCTTTCTTT", "TGTGCTGGGAGACTGATCAAAGCTGCAGGCAACAAGCTAACTTTT_TGTGCCAGCAGCGCCCCGGGACGTGAGAACACCGGGGAGCTGTTTTTT")
+  
+df <- data@meta.data %>% 
+  select(Condition, CTnt, Annotation_2.0) %>%
+  filter(CTnt %in% top6clones)
+
+
+p16 <- ggplot(df, aes(x = CTnt, y = after_stat(count), fill = Annotation_2.0)) +
+  geom_bar(position="fill") +
+  facet_wrap(~ Condition) +
+  labs(x = "Clonotypes", y = "Proportion", fill = "Cell Type") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.box.margin = margin(10, 10, 10, 10)) + 
+    scale_x_discrete(labels=c('top1 dec. cl', 'top2 dec. cl', 'top3 dec. cl', 'top1 inc. cl', 'top2 inc. cl', 'top3 inc. cl'))
+p16
+  
+```
+
+```{r}
+ggsave(filename = paste0(figs.dir,"top6clones_barplot.png"), plot = p16, device = "png", width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# stacked barplots showing shared clonotypes across timepoints for each patient
+head(mat)
+
+# P01
+P01.T0.clones <- data@meta.data %>% filter(timepoint == "SCR", patient == "01") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+P01.T1.clones <- data@meta.data %>% filter(timepoint != "SCR", patient == "01") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+print(paste("P01's T0 Expanded Clones:", length(P01.T0.clones)))
+print(paste("P01's T1 Expanded Clones:", length(P01.T1.clones)))
+
+# P02
+P02.T0.clones <- data@meta.data %>% filter(timepoint == "SCR", patient == "02") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+P02.T1.clones <- data@meta.data %>% filter(timepoint != "SCR", patient == "02") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+print(paste("P02's T0 Expanded Clones:", length(P02.T0.clones)))
+print(paste("P02's T1 Expanded Clones:", length(P02.T1.clones)))
+
+# P03
+P03.T0.clones <- data@meta.data %>% filter(timepoint == "SCR", patient == "03") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+P03.T1.clones <- data@meta.data %>% filter(timepoint != "SCR", patient == "03") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+print(paste("P03's T0 Expanded Clones:", length(P03.T0.clones)))
+print(paste("P03's T1 Expanded Clones:", length(P03.T1.clones)))
+
+# P04
+P04.T0.clones <- data@meta.data %>% filter(timepoint == "SCR", patient == "08") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+P04.T1.clones <- data@meta.data %>% filter(timepoint != "SCR", patient == "08") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+print(paste("P04's T0 Expanded Clones:", length(P04.T0.clones)))
+print(paste("P04's T1 Expanded Clones:", length(P04.T1.clones)))
+
+# P05
+P05.T0.clones <- data@meta.data %>% filter(timepoint == "SCR", patient == "10") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+P05.T1.clones <- data@meta.data %>% filter(timepoint != "SCR", patient == "10") %>% pull(CTnt) %>% unique() #  clonalFrequency > 1
+print(paste("P05's T0 Expanded Clones:", length(P05.T0.clones)))
+print(paste("P05's T1 Expanded Clones:", length(P05.T1.clones)))
+
+ggplot(data@meta.data, aes(fill=Timepoint, x=patient)) + 
+    geom_bar(position="stack") +  #stat="identity") +
+    scale_fill_viridis(discrete = T) +
+    #ggtitle("Studying 4 species..") +
+    hrbrthemes::theme_ipsum() +
+    xlab("")
+
+```
+
+
+## Lost, pre-existing and de novo clonotypes analysis
+
+```{r}
+# extract the metadata
+metadata <- data@meta.data
+
+# eeparate metadata by timepoint
+metadata_scr <- metadata[metadata$timepoint == "SCR", ]
+metadata_c02 <- metadata[metadata$timepoint != "SCR", ]
+
+# get unique clonotypes for each timepoint
+clonotypes_scr <- unique(metadata_scr$ctnt_TRB)
+clonotypes_c02 <- unique(metadata_c02$ctnt_TRB)
+
+# determine clonotypes found in both timepoints
+clonotypes_both <- intersect(clonotypes_scr, clonotypes_c02)
+clonotypes_only_scr <- setdiff(clonotypes_scr, clonotypes_c02)
+clonotypes_only_c02 <- setdiff(clonotypes_c02, clonotypes_scr)
+
+# initialize the status column
+metadata$TCR_status <- "Unknown"
+
+# assign status based on clonotype presence
+metadata[metadata$ctnt_TRB %in% clonotypes_both, "TCR_status"] <- "pre-existing"
+metadata[metadata$ctnt_TRB %in% clonotypes_only_scr, "TCR_status"] <- "lost"
+metadata[metadata$ctnt_TRB %in% clonotypes_only_c02, "TCR_status"] <- "de novo"
+
+# update the Seurat object metadata
+data@meta.data <- metadata
+
+data$TCR_status %>% head()
+```
+```{r}
+# Install and load necessary packages
+library(VennDiagram)
+library(ggplot2)
+
+# Define clonotype lists for the Venn diagram
+venn_data <- list(
+  "SCR" = clonotypes_scr,
+  "C02" = clonotypes_c02
+)
+
+# Create the Venn diagram
+venn.plot <- venn.diagram(
+  x = venn_data,
+  category.names = c("T0/-ICI", "T1/+ICI"),
+  filename = NULL,
+  output = TRUE,
+  fill = c("coral", "darkviolet"),
+  alpha = 0.5,
+  cex = 1.5,
+  fontfamily = "serif",
+  cat.cex = 1.5,
+  cat.fontfamily = "serif",
+  cat.col = c("black", "black")
+)
+
+# Display the Venn diagram
+pdf(paste0(figs.dir,"venn_diagram.pdf"), width = 4, height = 4)
+grid.draw(venn.plot)
+dev.off()
+```
+
+```{r}
+# check phenotype of lost, pre-existing and de novo clonotypes
+library(Seurat)
+library(dplyr)
+
+# extract metadata
+meta_data <- data@meta.data
+
+# ensure your metadata has columns for clonotype sequence and phenotype
+head(meta_data[c("ctnt_TRB", "Annotation_2.0", "timepoint")])
+
+# Identify clonotypes present in each timepoint
+clonotypes_timepoint1 <- unique(meta_data %>% filter(timepoint == "SCR") %>% pull(ctnt_TRB))
+clonotypes_timepoint2 <- unique(meta_data %>% filter(timepoint == "C02") %>% pull(ctnt_TRB))
+
+# Determine status
+meta_data <- meta_data %>%
+  mutate(
+    Status = case_when(
+      ctnt_TRB %in% clonotypes_timepoint1 & ctnt_TRB %in% clonotypes_timepoint2 ~ "pre-existing",
+      ctnt_TRB %in% clonotypes_timepoint2 & !ctnt_TRB %in% clonotypes_timepoint1 ~ "de novo",
+      ctnt_TRB %in% clonotypes_timepoint1 & !ctnt_TRB %in% clonotypes_timepoint2 ~ "lost",
+      TRUE ~ "undetermined"
+    )
+  )
+
+# Filter out undetermined clonotypes if necessary
+meta_data_filtered <- meta_data %>% filter(Status != "undetermined")
+
+# Check the structure
+str(meta_data_filtered)
+
+library(ggplot2)
+
+palette <- c('#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#e6550d', '#fd8d3c', '#fdae6b', '#fdd0a2', '#31a354', '#74c476', '#a1d99b', '#c7e9c0', '#756bb1', '#9e9ac8', '#bcbddc', '#dadaeb', '#636363', '#969696', '#bdbdbd', '#d9d9d9')
+ggplot(meta_data_filtered, aes(x = Status, fill = Annotation_2.0)) +
+  geom_bar(position = "fill") +
+  labs(title = "Phenotype Distribution by Clonotype Status",
+       x = "Clonotype Status",
+       y = "Proportion") +
+  theme_minimal() +
+  scale_fill_manual(values = palette) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+```{r}
+
+```
+
