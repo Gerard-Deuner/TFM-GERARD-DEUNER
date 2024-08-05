@@ -1,0 +1,298 @@
+---
+title: "Patient_02_SCR_CO2_annotation"
+author: "Gerard Deuner"
+date: "2024-01-09"
+output: html_document
+---
+
+```{r}
+# load packages
+library(Seurat)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+library(qs)
+library(RColorBrewer)
+library(gridExtra)
+library(scProportionTest)
+```
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r}
+# set up directories
+work.dir <- "/Users/gerarddeunercos/Documents/SERPENTINE/"
+data.dir <- paste0(work.dir, "data/")
+code.dir <- paste0(work.dir, "code/")
+```
+
+```{r}
+# load integrated dataset (replicates + timepoints. harmony)
+data <- readRDS(paste0(data.dir, "inputdata/","Patient_02_SCR_C02_harmony_integrated_TCR_01-12-2023.rds"))
+```
+
+```{r}
+# clustering
+resolutions <- c(0.1, 0.25, 0.5, 0.75, 1, 1.2, 1.4, 1.5, 1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.7, 2.8, 3)
+for (res in resolutions){
+  data <- FindClusters(data, resolution = res) %>%
+    AddMetaData(metadata = Idents(data), col.name = paste0("cluster_res", res))
+}
+```
+
+```{r}
+data <- FindClusters(data, resolution = 1.5) %>%
+    AddMetaData(metadata = Idents(data), col.name = paste0("cluster_res", "1.5"))
+```
+
+ 
+```{r}
+# find markers
+data <- SetIdent(data, value = data@meta.data$cluster_res1.5)
+markers <- FindAllMarkers(data, only.pos = T, min.pct = 0.25)
+markers %>%
+  group_by(cluster_res1.5) %>%
+  slice_max(n = 20, order_by = avg_log2FC)
+```
+
+```{r}
+# save markers
+write.csv(markers, file = paste0(data.dir, "markers/", "Patient02_res1.5_markers"))
+```
+
+```{r}
+# visualize res1.5 clustering
+umap <- DimPlot(data, reduction = "umap", group.by = "cluster_res1.5", label = T)
+umap
+```
+
+```{r}
+# check number of clusters
+data@meta.data$cluster_res1.5 %>% as.numeric %>% max # 32 clusters
+```
+
+```{r}
+# carry out annotation
+annotation <- c(      "CD8+ T Cells",      #0
+                      "CD4+ T Cells",      #1
+                      "CD16- NK Cells",    #2
+                      "CD8+ T Cells",      #3
+                      "CD4+ T Cells",      #4
+                      "CD8+ T Cells",      #5
+                      "CD4+ T Cells",      #6
+                      "Tumor Cells",       #7
+                      "CD4+ T Cells",      #8
+                      "CD4+ T Cells",      #9
+                      "CD4+ T Cells",      #10
+                      "TAMs",              #11
+                      "CD4+ T Cells",      #12
+                      "Tumor Cells",       #13
+                      "TAMs",              #14
+                      "cDCs",              #15
+                      "Tumor Cells",       #16
+                      "Monocytes",         #17
+                      "CD4+ T Cells",      #18
+                      "CD16+ NK Cells",    #19
+                      "pDCs",              #20
+                      "CD8+ T Cells",      #21
+                      "B Cells",           #22
+                      "Endothelial Cells", #23
+                      "TAMs",              #24
+                      "TAMs",              #25
+                      "TAMs",              #26
+                      "CAFs",              #27
+                      "CD4+ T Cells",      #28
+                      "CD4+ T Cells",      #29
+                      "Hepatocytes",       #30
+                      "Plasma Cells"       #31
+
+)
+
+data <- SetIdent(data, value = data@meta.data$cluster_res1.5)
+names(annotation) <- levels(data)
+data <- RenameIdents(data, annotation)
+data <- AddMetaData(data, metadata = Idents(data), col.name = "Annotation_1.0")
+Idents(data) %>% levels
+```
+
+```{r}
+# visualize annotation
+plot <- DimPlot(data, reduction = "umap")
+plot
+```
+
+
+```{r}
+# annotate small clusters
+
+data <- CellSelector(plot = plot, object = data, ident = "tiny1") # tiny 1
+markers.tiny.1 <- FindMarkers(data, ident.1 = "tiny1") 
+markers.tinty.1 %>%
+  slice_max(n = 30, order_by = avg_log2FC)
+
+data <- CellSelector(plot = plot, object = data, ident = "tiny2") # tiny 2
+markers.tiny.2 <- FindMarkers(data, ident.1 = "tiny2") 
+markers.tinty.1 %>%
+  slice_max(n = 30, order_by = avg_log2FC)
+
+data$Annotation_1.0 %>% levels()
+
+data <- RenameIdents(object = data,
+                     old.ident.name = Idents(data),
+                     new.ident.name = c())
+data$Annotation_1.0 <- Idents(data)
+```
+
+```{r}
+# save seurat object
+qsave(data, file = paste0(data.dir, "tmpdata/", "Patient_02_SCR_CO2_annotated_20-12-23"))
+```
+
+```{r}
+# read annotated seurat object
+data <- qread(paste0(data.dir, "tmpdata/", "Patient_02_SCR_CO2_annotated_20-12-23"))
+```
+
+```{r}
+# visualize annotation
+anno <- DimPlot(data, group.by = "Annotation_1.0", label = T) +
+  labs(title = "Cell Type Annotation", x = "UMAP 1", y = "UMAP 2") +
+  theme(legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+anno
+```
+
+```{r}
+ggsave(filename = paste0(work.dir, "figures/Patient_02_SCR_CO2_annotation1.0.png"), plot = anno, device = "png", width = 8, height = 7)
+```
+
+_____________________________________________________________
+
+```{r}
+## map basic cell type markers ##
+
+markers.1 <- c("PTPRC",  # immune
+               "CD3E",   # T cells
+               "MS4A1",  # B cells
+               "CD68",   # Myeloid
+               "TPSAB1", # mast
+               "EPCAM"   # tumor
+)
+marker.labels.1 <- c("Immune", "T Cells", "B Cells", "Myeloid", "Mast", "Tumor")
+
+fplots.1 <- lapply(1:length(markers.1), function(x){
+  feature <- markers.1[x]
+  plot_title <- paste(feature, marker.labels.1[x], sep = " - ")
+  FeaturePlot(object = data, reduction = "umap", features = feature) +
+    labs(title = plot_title, x = "UMAP 1", y = "UMAP 2") +
+    scale_colour_gradientn(colours = brewer.pal(n = 7, name = "Greens")) +
+    theme(legend.position = "none",
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank())
+})
+
+anno.fplots <- anno + do.call("grid.arrange", c(fplots.1, nrow = 3))
+anno.fplots
+```
+
+```{r}
+ggsave(filename = paste0(work.dir, "figures/Patient_02_SCR_CO2_basic_markers.png"), plot = anno.fplots, device = "png", width = 8, height = 7)
+```
+
+_____________________________________________________________
+
+```{r}
+## map proliferation, exhaustion and treg markers ##
+
+markers.2 <- c("CTLA4", # exhaustion
+              "MKI67", # proliferation
+              "FOXP3"  # treg
+              )
+marker.labels.2 <- c("Exhaustion", "Proliferation", "Regulatory T Cell")
+
+fplots.2 <- lapply(1:length(markers.2), function(x){
+  feature <- markers.2[x]
+  plot_title <- paste(feature, marker.labels.2[x], sep = " - ")
+  FeaturePlot(object = data, reduction = "umap", features = feature) +
+    labs(title = plot_title, x = "UMAP 1", y = "UMAP 2") +
+    scale_colour_gradientn(colours = brewer.pal(n = 7, name = "Reds")) +
+    theme(legend.position = "none",
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank())
+})
+
+anno.fplots2 <- anno + do.call("grid.arrange", c(fplots.2, nrow = 3))
+anno.fplots2
+```
+
+```{r}
+ggsave(filename = paste0(work.dir, "figures/Patient_02_SCR_CO2_adv_markers.png"), plot = anno.fplots2, device = "png", width = 8, height = 7)
+```
+
+_____________________________________________________________
+
+```{r}
+## Timepoints Analysis ##
+
+# subset seurat object based on timepoints
+data.SCR <- subset(data, subset = timepoint == "SCR")
+data.C02 <- subset(data, subset = timepoint == "C02")
+```
+
+```{r}
+# visualize individual UMAPs
+anno.SCR <- DimPlot(data.SCR, group.by = "Annotation_1.0") +
+  labs(title = "SCR", x = "UMAP 1", y = "UMAP 2") + theme(legend.position = "none")
+anno.C02 <- DimPlot(data.C02, group.by = "Annotation_1.0") +
+  labs(title = "C02", x = "UMAP 1", y = "UMAP 2")
+
+tp.anno <- anno.SCR + anno.C02
+tp.anno
+```
+
+```{r}
+ggsave(filename = paste0(work.dir, "figures/Patient_02_SCR_CO2_timepoint_annotation1.0.png"), plot = tp.anno, device = "png", width = 12, height = 7)
+```
+
+
+```{r}
+# permutation test
+prop.test <- sc_utils(data)
+prop.test <- permutation_test(
+  prop.test, cluster_identity = "Annotation_1.0",
+  sample_1 = "SCR", sample_2 = "C02",
+  sample_identity = "timepoint"
+)
+perm.plot <- permutation_plot(prop.test)
+```
+
+```{r}
+# composition plot
+comp.plot <- dittoBarPlot(
+  object = data,
+  var = "timepoint",
+  group.by = "Annotation_1.0",
+  xlab = "Cell Types",
+  legend.title = "Timepoint",
+  main = "Composition of Cell Types per Timepoint") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+comp.plot + perm.plot
+```
+
+```{r}
+# still check for stress markers and doublets
+```
+

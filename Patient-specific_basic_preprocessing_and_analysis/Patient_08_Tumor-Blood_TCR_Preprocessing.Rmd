@@ -1,0 +1,406 @@
+---
+title: "Patient_08_Tumor-Blood_TCR_Analysis"
+author: "Gerard Deuner Cos"
+date: "2024-05-07"
+output: html_document
+---
+
+# Patient 08 Tumor & Tumor-Blood Matching TCR Preprocessing & Analysis
+
+## Tumor TCR 
+
+```{r}
+# load libraries
+library(Seurat)
+library(dplyr)
+library(scRepertoire)
+library(SeuratData)
+library(SeuratDisk)
+library(rhdf5)
+library(scCustomize)
+library(stringr)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(qs)
+```
+
+```{r}
+# import path variables 
+source("/Users/gerarddeunercos/Documents/cluster1/gdeuner/config.R")
+```
+
+```{r}
+# read TNK, annotated and clean patient 03 seurat object
+data <- qread("/Users/gerarddeunercos/Documents/SERPENTINE/data/outputdata/Patient_08_SCR_CO2_TNK_subset_pp_annotated_clean_30-01-24")
+```
+
+```{r}
+# check proper sample integration, embedding and annotation
+DimPlot(data, 
+        group.by = c("sample", "project", "Annotation_1.0", "Annotation_2.0"),
+        ncol = 2
+        )
+```
+
+```{r}
+# read TNK, integrated, annotated 2.0 seurat object
+#data.int <- LoadH5Seurat("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/outputdata/combined/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat")
+
+data.int <- LoadH5Seurat("/Users/gerarddeunercos/Downloads/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat", meta.data = FALSE, misc = FALSE)
+obs <- h5read("/Users/gerarddeunercos/Downloads/Combined_SCR_CO2_TNK_annotated_13-04-24.h5seurat", "/meta.data")
+meta <- data.frame(lapply(names(obs), function(x) { 
+  if (length(obs[[x]])==2) 
+    obs[[x]][['categories']][ifelse(obs[[x]][['codes']] >= 0, obs[[x]][['codes']] + 1, NA)]
+  else 
+    as.numeric(obs[[x]])
+}
+), row.names=Cells(data.int))
+colnames(meta) <- names(obs)
+
+data.int <- AddMetaData(data.int,meta)
+data.int
+```
+
+```{r}
+# inspect intgrated object
+data.int@meta.data
+```
+
+
+```{r}
+# store old annotation_2.0
+data$Annotation_2.0_old <- data$Annotation_2.0
+data$Annotation_2.0 <- NULL
+```
+
+```{r}
+# transfer annotation 2.0 from integrated object to the patient-specific object 
+
+# modify integrated object cell names so the format matches
+rownames(data.int@meta.data) <- substring(rownames(data.int@meta.data), 2)
+
+# get common cells
+common_cells <- intersect(rownames(data.int@meta.data), rownames(data@meta.data))
+
+# transfer annotation
+transfer <- data.int@meta.data[common_cells, "Annotation_2.0"]
+names(transfer) <- data.int@meta.data[common_cells,] %>% rownames()
+transfer %>% head()
+
+data <- AddMetaData(data, transfer, col.name = "Annotation_2.0")
+```
+
+```{r}
+# inspect annotation_2.0
+data$Annotation_2.0 %>% unique()
+```
+
+```{r}
+data@meta.data
+```
+
+```{r}
+# remove double-negative T cells as well as NKs
+data <- subset(data, subset = Annotation_2.0 != "NA") %>%
+  subset(subset = Annotation_2.0 != "γδ T-like") %>% 
+  subset(subset = Annotation_2.0 != "Cycling γδ T-like") %>%
+  subset(subset = Annotation_2.0 != "CD56dim CD16hi NK") %>%
+  subset(subset = Annotation_2.0 != "CD56hi CD16lo NK")
+data$Annotation_2.0 %>% unique()
+```
+
+```{r}
+# Read Tumor TCR data
+P08_S1 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_22_23/jobs/SPE_1_08_SCR_A_FRESH/SPE_1_08_SCR_A_FRESH/outs/per_sample_outs/SPE_1_08_SCR_A_FRESH/vdj_t/filtered_contig_annotations.csv"))
+P08_S2 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_30_31/jobs/SPE_1_8_C2_A_FRESH_1/SPE_1_8_C2_A_FRESH_1/outs/per_sample_outs/SPE_1_8_C2_A_FRESH_1/vdj_t/filtered_contig_annotations.csv"))
+P08_S4 <- read.csv(paste0(sp.proj.dir, "/data/SERPENTINE_30_31/jobs/SPE_1_8_C2_A_FRESH_2/SPE_1_8_C2_A_FRESH_2/outs/per_sample_outs/SPE_1_8_C2_A_FRESH_2/vdj_t/filtered_contig_annotations.csv"))
+  
+# Create a contigs list
+
+contig_list_TCR <- list(P08_S1, P08_S2, P08_S4)
+                        
+
+###############
+# Combine TCR #
+###############
+
+combined_tcr <- combineTCR(contig_list_TCR, 
+                ID = c(
+                  "SPE_1_08_SCR_A_FRESH", "SPE_1_8_C2_A_FRESH_1", "SPE_1_8_C2_A_FRESH_2"
+                  ), 
+                samples = c(
+                  "SERPENTINE_22_23", "SERPENTINE_30_31", "SERPENTINE_30_31"
+                  )
+                )
+
+# rename to match sc
+
+combined_tcr$SERPENTINE_22_23_SPE_1_08_SCR_A_FRESH$barcode <- str_remove_all(combined_tcr$SERPENTINE_22_23_SPE_1_08_SCR_A_FRESH$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_1$barcode <- str_remove_all(combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_1$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_30_31_SPE_1_8_C2_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+combined.TCR <- combined_tcr
+```
+
+```{r}
+# visualize TCR data
+combined.TCR
+```
+
+```{r}
+# Combine Expression - join RNA + TCR data
+data <- combineExpression(
+  combined.TCR, 
+  data, 
+  chain = "both",
+  cloneCall="nt", 
+  proportion = FALSE, 
+  cloneSize=c(Single=1, Small=5, Medium=20, Large=50, Hyperexpanded=100))
+```
+
+```{r}
+# separate alpga and beta chains
+head(data@meta.data$CTnt) # combined expression using both chains, therefore we need to split them between alpha and beta chain
+data$CTnt_TRA <- substr(data@meta.data$CTnt, 1, regexpr("_", data@meta.data$CTnt) - 1)
+data$CTnt_TRB <- sub(".*_", "", data@meta.data$CTnt)
+```
+
+```{r}
+# remove first and last 3 nucleotides from CTnt_beta
+data$CTnt_TRB %>% head()
+data$CTnt_TRB_short <- ifelse(nchar(data$CTnt_TRB) > 6, substring(data$CTnt_TRB, 4, nchar(data$CTnt_TRB) - 3), data$CTnt_TRB)
+
+data$CTnt_TRB_short %>% head()
+```
+
+
+# Tumor-Blood Matching Clonotypes
+
+```{r}
+# read clonotypes found in tumor and peripheral blood both pre and post ICI
+p08_pre_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE08_tumour_overlap_blood_pre.csv")
+p08_post_blood_tcr <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/tumour_blood_overlaping_clonotypes/SPE08_tumour_C02_overlap_blood_C02.csv")
+```
+
+```{r}
+# create basic annotation for this analysis
+data@meta.data <- data@meta.data %>%
+  dplyr::mutate(cell_type = 
+    if_else(grepl("CD4 T", Annotation_2.0), "CD4 T",
+    if_else(grepl("CD8 T", Annotation_2.0), "CD8 T", Annotation_2.0))) %>%
+  dplyr::mutate(cell_type = if_else(Annotation_2.0 == "CD4 T Regulatory", "Treg", cell_type))
+```
+
+```{r}
+data$cell_type %>% unique()
+```
+
+```{r}
+# plot umaps
+DimPlot_scCustom(data, group.by = "cell_type", figure_plot = T, ) +
+  labs(x = "UMAP 1", y = "UMAP 2") + 
+  theme(axis.text.x=element_blank(), 
+      axis.ticks.x=element_blank(), 
+      axis.text.y=element_blank(), 
+      axis.ticks.y=element_blank()) 
+```
+
+```{r}
+# check matchings
+unname(data$CTnt_TRB) %in% p08_pre_blood_tcr$cdr3_nt %>% table()
+unname(data$CTnt_TRB) %in% p08_post_blood_tcr$cdr3_nt %>% table()
+```
+
+```{r}
+# add flag indicating whether the clonotypes are found also in blood
+data$blood_pre <- ifelse(data$CTnt_TRB %in% p08_pre_blood_tcr$cdr3_nt, T, F)
+data$blood_post <- ifelse(data$CTnt_TRB %in% p08_post_blood_tcr$cdr3_nt, T, F)
+data$blood <- ifelse((data$blood_pre | data$blood_post) == T, T, F)
+```
+
+```{r}
+# check proportions
+data$blood_pre %>% table()
+data$blood_post %>% table()
+data$blood %>% table()
+```
+
+```{r}
+# take tumor-blood shared TCRs by patient and timepoints
+
+# pre
+p08.pre <- data@meta.data %>%
+  select("CTnt", "CTnt_TRB", "cell_type", "Annotation_2.0", "blood_pre") %>%
+  filter(blood_pre == T) %>%
+  select("CTnt_TRB", "cell_type", "Annotation_2.0") %>%
+  dplyr::rename(CTnt = CTnt_TRB, CellType_1_0 = cell_type, CellType_2_0 = Annotation_2.0)
+write.csv(p08.pre %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_tumour_overlap_blood_pre_phenotype.csv")
+
+# post
+p08.post <- data@meta.data %>%
+  select("CTnt", "CTnt_TRB", "cell_type", "Annotation_2.0", "blood_post") %>%
+  filter(blood_post == T) %>%
+  select("CTnt_TRB", "cell_type", "Annotation_2.0") %>%
+  dplyr::rename(CTnt = CTnt_TRB, CellType_1_0 = cell_type, CellType_2_0 = Annotation_2.0)
+write.csv(p08.post %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_tumour_overlap_blood_post_phenotype.csv")
+``` 
+
+
+## Tumor-Blood Differentially Expanded Clonotypes
+
+```{r}
+# read file containing differentially expanded clonotypes 
+tcr.1013.overlap <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/differential_expansion_overlap_tumour/SPE08_tumour_blood_differential_1013_overlap.csv")
+tcr.1865.overlap <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/differential_expansion_overlap_tumour/SPE08_tumour_blood_differential_1865_overlap.csv")
+tcr.4015.overlap <- read.csv("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/differential_expansion_overlap_tumour/SPE08_tumour_blood_differential_4015_overlap.csv")
+```
+
+```{r}
+# check sequences match
+unname(data$CTnt_TRB_short) %in% tcr.1013.overlap$cdr3_nt %>% table()
+unname(data$CTnt_TRB_short) %in% tcr.1865.overlap$cdr3_nt %>% table()
+unname(data$CTnt_TRB_short) %in% tcr.4015.overlap$cdr3_nt %>% table()
+```
+
+```{r}
+names(tcr.1013.overlap) <- c("cdr3_nt_1013", "compartment_1013", "tumour_1013")
+names(tcr.1865.overlap) <- c("cdr3_nt_1865", "compartment_1865", "tumour_1865")
+names(tcr.4015.overlap) <- c("cdr3_nt_4015", "compartment_4015", "tumour_4015")
+```
+
+```{r}
+# merge tcr info to seurat's metadata
+data$cdr3_nt_1013 <- tcr.1013.overlap$cdr3_nt_1013[match(data$CTnt_TRB_short, tcr.1013.overlap$cdr3_nt_1013)]
+data$compartment_1013 <- tcr.1013.overlap$compartment_1013[match(data$CTnt_TRB_short, tcr.1013.overlap$cdr3_nt_1013)]
+data$tumour_1013 <- tcr.1013.overlap$tumour_1013[match(data$CTnt_TRB_short, tcr.1013.overlap$cdr3_nt_1013)]
+
+data$cdr3_nt_1865 <- tcr.1865.overlap$cdr3_nt_1865[match(data$CTnt_TRB_short, tcr.1865.overlap$cdr3_nt_1865)]
+data$compartment_1865<- tcr.1865.overlap$compartment_1865[match(data$CTnt_TRB_short, tcr.1865.overlap$cdr3_nt_1865)]
+data$tumour_1865 <- tcr.1865.overlap$tumour_1865[match(data$CTnt_TRB_short, tcr.1865.overlap$cdr3_nt_1865)]
+
+data$cdr3_nt_4015 <- tcr.4015.overlap$cdr3_nt_4015[match(data$CTnt_TRB_short, tcr.4015.overlap$cdr3_nt_4015)]
+data$compartment_4015 <- tcr.4015.overlap$compartment_4015[match(data$CTnt_TRB_short, tcr.4015.overlap$cdr3_nt_4015)]
+data$tumour_4015 <- tcr.4015.overlap$tumour_4015[match(data$CTnt_TRB_short, tcr.4015.overlap$cdr3_nt_4015)]
+```
+
+```{r}
+# check proportions
+data$compartment_1013 %>% table()
+data$tumour_1013 %>% table()
+data$compartment_1865 %>% table()
+data$tumour_1865 %>% table()
+data$compartment_4015 %>% table()
+data$tumour_4015 %>% table()
+```
+
+```{r}
+# save phenotype of differentially expanded tumor-blood clonotypes
+p08.diffExp.1013 <- data@meta.data %>%
+  select(CTnt, CTnt_TRB_short, cell_type, Annotation_2.0, cdr3_nt_1013, compartment_1013, tumour_1013) %>%
+  filter(cdr3_nt_1013 != "NA") %>%
+  select(CTnt_TRB_short, compartment_1013, tumour_1013, cell_type, Annotation_2.0) %>%
+  dplyr::rename(CTnt = CTnt_TRB_short, compartment = compartment_1013, tumour = tumour_1013, CellType_1_0 = cell_type, CellType_2_0 = Annotation_2.0)
+
+write.csv(p08.diffExp.1013 %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08               _tumour_blood_differential_overlap_1013_phenotype.csv")
+
+p08.diffExp.1865 <- data@meta.data %>%
+  select(CTnt, CTnt_TRB_short, cell_type, Annotation_2.0, cdr3_nt_1865, compartment_1865, tumour_1865) %>%
+  filter(cdr3_nt_1865 != "NA") %>%
+  select(CTnt_TRB_short, compartment_1865, tumour_1865, cell_type, Annotation_2.0) %>%
+  dplyr::rename(CTnt = CTnt_TRB_short, compartment = compartment_1865, tumour = tumour_1865, CellType_1_0 = cell_type, CellType_2_0 = Annotation_2.0)
+
+write.csv(p08.diffExp.1865 %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08               _tumour_blood_differential_overlap_1865_phenotype.csv")
+
+p08.diffExp.4015 <- data@meta.data %>%
+  select(CTnt, CTnt_TRB_short, cell_type, Annotation_2.0, cdr3_nt_4015, compartment_4015, tumour_4015) %>%
+  filter(cdr3_nt_4015 != "NA") %>%
+  select(CTnt_TRB_short, compartment_4015, tumour_4015, cell_type, Annotation_2.0) %>%
+  dplyr::rename(CTnt = CTnt_TRB_short, compartment = compartment_4015, tumour = tumour_4015, CellType_1_0 = cell_type, CellType_2_0 = Annotation_2.0)
+
+write.csv(p08.diffExp.4015 %>% distinct(), file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08    _tumour_blood_differential_overlap_4015_phenotype.csv")
+```
+
+```{r}
+# quality control
+p08.diffExp.1013$CTnt %>% length()
+p08.diffExp.1013$CTnt %>% unique() %>% length()
+intersect(p08.diffExp.1013$CTnt, tcr.1013.overlap $cdr3_nt) %>% length()
+
+p08.diffExp.1865$CTnt %>% length()
+p08.diffExp.1865$CTnt %>% unique() %>% length()
+intersect(p08.diffExp.1865$CTnt, tcr.1865.overlap$cdr3_nt) %>% length()
+
+p08.diffExp.4015$CTnt %>% length()
+p08.diffExp.4015$CTnt %>% unique() %>% length()
+intersect(p08.diffExp.4015$CTnt, tcr.4015.overlap$cdr3_nt) %>% length()
+```
+
+```{r}
+# save seurat object
+#qsave("/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/outputdata/Patient_01/P01_TNK_TCR_updated_07-05-24.qs")
+qsave(data, "/Users/gerarddeunercos/Downloads/P08_TNK_TCR_updated_07-05-24.qs")
+```
+
+```{r}
+# convert it to an anndata object
+data$Annotation_1.0 <- as.character(data$Annotation_1.0)
+data$cloneSize <- as.character(data$cloneSize)
+data$timepoint <- as.character(data$timepoint)
+data$Annotation_2.0 <- as.character(data$Annotation_2.0)
+data$cell_type <- as.character(data$cell_type)
+data$blood <- as.character(data$blood)
+data$blood_pre <- as.character(data$blood_pre)
+data$blood_post <- as.character(data$blood_post)
+data$cdr3_nt_1013 <- as.character(data$cdr3_nt_1013)
+data$compartment_1013 <- as.character(data$compartment_1013)
+data$tumour_1013 <- as.character(data$tumour_1013)
+data$cdr3_nt_1865 <- as.character(data$cdr3_nt_1865)
+data$compartment_1865 <- as.character(data$compartment_1865)
+data$tumour_1865 <- as.character(data$tumour_1865)
+data$cdr3_nt_4015 <- as.character(data$cdr3_nt_4015)
+data$compartment_4015 <- as.character(data$compartment_4015)
+data$tumour_4015 <- as.character(data$tumour_4015)
+
+SaveH5Seurat(data, filename = "/Users/gerarddeunercos/Downloads/P08_TNK_TCR_updated_07-05-24", dest = "h5seurat", overwrite = T)
+Convert(file.path("/Users/gerarddeunercos/Downloads/P08_TNK_TCR_updated_07-05-24.h5seurat"), dest = "h5ad", overwrite = T)
+```
+## Extract clonotypes of specific clusters
+
+```{r}
+# read df of post-ICI tumor-blood clonotypes with their phenotypes
+p08.post <- read.csv(file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_tumour_overlap_blood_post_phenotype.csv")
+```
+
+```{r}
+# CD8 T TRM Exhausted
+p08.post %>%
+  filter(CellType_2_0 == "CD8 T TRM Exhausted") %>%
+  select(CTnt, CellType_2_0) %>%
+  write.csv(file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_CD8_T_TRM_Exhausted_tumour_overlap_blood_post.csv", row.names = F)
+```
+
+```{r}
+# CD8 T TRM PreExhausted
+p08.post %>%
+  filter(CellType_2_0 == "CD8 T TRM PreExhausted") %>%
+  select(CTnt, CellType_2_0) %>%
+  write.csv(file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_CD8_T_TRM_PreExhausted_tumour_overlap_blood_post.csv", row.names = F)
+```
+
+```{r}
+# CD8 T Proliferative
+p08.post %>%
+  filter(CellType_2_0 == "CD8 T Proliferative") %>%
+  select(CTnt, CellType_2_0) %>%
+  write.csv(file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_CD8_T_Proliferative_tumour_overlap_blood_post.csv", row.names = F)
+```
+
+```{r}
+# CD4 T Follicular helper
+p08.post %>%
+  filter(CellType_2_0 == "CD4 T Follicular Helper") %>%
+  select(CTnt, CellType_2_0) %>%
+  write.csv(file = "/Users/gerarddeunercos/Documents/cluster1/gdeuner/SERPENTINE/data/TCR_tumor_blood_analysis/Patient_08/files/SPE08_CD4_T_Follicular_Helper_tumour_overlap_blood_post.csv", row.names = F)
+```
+

@@ -1,0 +1,447 @@
+---
+title: "Patient_01_SCR_CO2_TNK_annotation"
+author: "Gerard Deuner"
+date: "2024-01-09"
+output: html_document
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+## Preprocessing
+
+```{r}
+# load packages
+library(Seurat)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+library(qs)
+library(harmony)
+library(RColorBrewer)
+library(gridExtra)
+library(scCustomize)
+library(viridis)
+library(dittoSeq)
+```
+
+```{r}
+# select patient
+patient <- "Patient_01"
+```
+
+```{r}
+# set up directories
+work.dir <- "/Users/gerarddeunercos/Documents/SERPENTINE/"
+data.dir <- paste0(work.dir, "data/")
+code.dir <- paste0(work.dir, "code/")
+fig.dir <- (paste0(work.dir, "figures/", patient, "/TNK/"))
+```
+
+```{r}
+# load annotated s.object
+data <- qread(paste0(data.dir, "outputdata/", patient, "_SCR_CO2_harmony_integrated_pp_annotated_TCR_22-01-24"))
+
+# subset the T Cells and NK clusters
+data.tnk <- subset(data, subset = Annotation_1.0 %in% c("T Cells", "NK"))
+
+# number of cells
+Cells(data.tnk) %>% length #9769
+```
+
+```{r}
+# store subsetted object 
+qsave(data.tnk, file = paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_TNK_subset_30-01-24"))
+```
+
+```{r}
+# read subsetted object 
+data.tnk <- qread(paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_TNK_subset_30-01-24"))
+```
+
+```{r}
+# plot (whole) annotation
+anno <- DimPlot_scCustom(data, 
+                         group.by = "Annotation_1.0", 
+                         label = F, 
+                         colors_use = c("red", "darkorange", "#333333",  "blue", "skyblue", "darkgreen","gold", "brown", "violet"),
+                         figure_plot = T) 
+anno
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_SCR_CO2_annotation_1.0.tiff"), plot = anno, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+
+```{r}
+# highlight subsetted cell types 
+anno2 <- Cluster_Highlight_Plot(data, 
+                         cluster_name = c("T Cells", "NK"),
+                         group.by = "Annotation_1.0", 
+                         highlight_color = c("red", "darkorange"),
+                         figure_plot = T,
+                          ) 
+anno2
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_SCR_CO2_annotation_1.0_highlight.tiff"), plot = anno2, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+
+```{r}
+# plot annotation on subset
+anno3 <- DimPlot_scCustom(data.tnk, 
+                         group.by = "Annotation_1.0", 
+                         label = F, 
+                         colors_use = c("red", "darkorange"),
+                         figure_plot = T) 
+anno3
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_annotation_1.0.tiff"), plot = anno3, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+```{r}
+data.tnk <- data.tnk %>%
+  NormalizeData() %>%
+  FindVariableFeatures(nfeatures = 3000) %>%
+  ScaleData(vars.to.regress = "nFeature_RNA") %>% 
+  RunPCA()
+```
+
+```{r}
+ElbowPlot(data.tnk, ndims = 50)
+```
+
+```{r}
+PC_Plotting(data.tnk, dim_number = 2)
+```
+
+```{r}
+# Examine and visualize PCA results a few different ways
+print(data.tnk[["pca"]], dims = 1:10, nfeatures = 5) # find genes explaining the different PCs
+```
+
+```{r}
+data.tnk <- RunHarmony(data.tnk, group.by.vars = "project") 
+data.tnk <- data.tnk %>%
+  RunUMAP(reduction = "harmony", dims = 1:20) %>%
+  FindNeighbors(reduction = "harmony", dims = 1:20) %>%
+  FindClusters()
+```
+
+```{r}
+# change sample metadata names
+data.tnk$sample_id <- data.tnk$sample
+data.m$sample[data.m$sample_id == "SPE_1_01_C2D1_A_FRESH_1"] <- "C02.1"
+data.m$sample[data.m$sample_id == "SPE_1_01_C2D1_A_FRESH_2"] <- "C02.2"
+data.m$sample[data.m$sample_id == "SPE_1_01_SCR_A_FRESH"] <- "SCR.1"
+data.m$sample[data.m$sample_id == "SPE_1_01_SCR_A_FRESH_CD45"] <- "SCR.2.CD45"
+```
+
+```{r}
+# check for batch effects - check correction
+p1 <- DimPlot_scCustom(data.tnk, reduction = "pca", group.by = "project") + NoLegend() + 
+DimPlot_scCustom(data.tnk, reduction = "harmony", group.by = "project")
+p1
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_integration_correction.tiff"), plot = p1, device = "tiff", width = 8, height = 5, dpi = 600)
+```
+
+```{r}
+p2 <- FeaturePlot_scCustom(data.tnk, features = c("percent.mt", "nFeature_RNA", "nCount_RNA", "doublet_score"))
+p2
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_fp_technical_sources_.tiff"), plot = p2, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+p3 <- VlnPlot_scCustom(data.tnk, features = c("percent.mt", "nFeature_RNA", "nCount_RNA"), group.by = "timepoint")
+p3
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_vlnp_technical_sources_.tiff"), plot = p3, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+# visualize integration
+sample.colors <- c("#FF6633","#FFCC00", "#CC99FF", "#6600CC")
+int.plot <- DimPlot_scCustom(data.tnk, group.by = "sample", colors_use = sample.colors, figure_plot = T, )
+int.plot
+```
+
+```{r}
+# save integration plot
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_timepoints_integration.tiff"), plot = int.plot, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+```{r}
+# clustering
+data.tnk <- data.tnk %>% 
+  FindClusters(dresolution = 1.2) %>%
+  AddMetaData(metadata = Idents(data.tnk), col.name = paste0("cluster_res", "1.2"))
+
+cl <- DimPlot_scCustom(data.tnk, group.by = "cluster_res1.2", label = T, repel = T, figure_plot = T)
+cl
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_clustering_res1.2.tiff"), plot = cl, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+data.tnk <- SetIdent(data.tnk, value = "cluster_res1.2")
+Idents(data.tnk) %>% levels()
+```
+
+```{r}
+# save subsetted seurat object
+qsave(data.tnk, file = paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_TNK_subset_pp_30-01-24"))
+```
+
+```{r}
+# read the seurat object
+data.tnk <- qread(file = paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_TNK_subset_pp_30-01-24"))
+```
+
+## Annotation
+
+```{r}
+# find markers
+data.tnk <- SetIdent(data.tnk, value = data.tnk@meta.data$cluster_res1.2)
+markers <- FindAllMarkers(data.tnk, only.pos = T, min.pct = 0.25)
+markers %>%
+  group_by(cluster_res1.2) %>%
+  slice_max(n = 20, order_by = avg_log2FC)
+```
+
+```{r}
+# save markers
+write.csv(markers, file = paste0(data.dir, "markers/", patient, "/", patient, "_TNK_subset_res1.2_markers.csv"))
+```
+
+```{r}
+# read markers
+markers <- read.csv(file = paste0(data.dir, "markers/", patient, "/", patient, "_TNK_subset_res1.2_markers.csv"))
+```
+
+```{r}
+# split df to multiple to save in different sheets
+markers <- markers %>% 
+  group_by(cluster) %>% 
+  arrange(desc(avg_log2FC), .by_group = TRUE)
+markers_split <- split(markers, markers$cluster)
+```
+
+```{r}
+# write to excel file
+openxlsx::write.xlsx(markers_split, 
+                     file = paste0(data.dir, "markers/", patient, "/", patient, "_TNK_subset_res1.2_cluster_markers.xlsx"),
+                     overwrite = TRUE)
+```
+
+```{r}
+# map T cell markers
+t.markers <- c("CD3E", "CD4", "CD8B", "CCR7", "GZMK", "IL7R", "HAVCR2", "PDCD1", "FOXP3", "CXCR5", "CXCL13", "MKI67", "TRDC", "TRAV1-2", "ITGAE", "KLRF1")
+pal <- viridis(n = 10, option = "F")
+fp.markers <- FeaturePlot_scCustom(data.tnk, features = t.markers, colors_use = pal, figure_plot = T)
+fp.markers
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_t_markers_fp.tiff"), plot = fp.markers, device = "tiff", width = 10, height = 8, dpi = 600)
+```
+
+```{r}
+dp.markers <- DotPlot_scCustom(data.tnk, features = t.markers, x_lab_rotate = T)
+dp.markers
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_t_markers_dp.tiff"), plot = dp.markers, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+vln.markers <- VlnPlot_scCustom(seurat_object = data.tnk, features = t.markers)
+vln.markers
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_t_markers_vln.tiff"), plot = vln.markers, device = "tiff", width = 14, height = 11, dpi = 600)
+```
+
+```{r}
+top_markers <- Extract_Top_Markers(marker_dataframe = markers, num_genes = 5, named_vector = FALSE,
+    make_unique = TRUE)
+cdp.markers <- Clustered_DotPlot(data.tnk, features = top_markers, plot_km_elbow = F)
+cdp.markers
+```
+
+```{r}
+tiff(paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_t_markers_cdp.tiff"), res = 100, height = 9, width = 8, units = "in")
+cdp.markers
+dev.off()
+```
+
+```{r}
+# map NK cell markers
+nk.markers <- c("CD3E", "CD4", "CD8B", "KLRF1", "NCAM1", "FCGR3A")
+pal <- viridis(n = 10, option = "F")
+fp.markers.2 <- FeaturePlot_scCustom(data.tnk, features = nk.markers, colors_use = pal, figure_plot = T)
+fp.markers.2
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_nk_markers_fp.tiff"), plot = fp.markers.2, device = "tiff", width = 10, height = 8, dpi = 600)
+```
+
+```{r}
+dp.markers.2 <- DotPlot_scCustom(data.tnk, features = nk.markers, x_lab_rotate = T)
+dp.markers.2
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_nk_markers_dp.tiff"), plot = dp.markers.2, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+vln.markers.2 <- VlnPlot_scCustom(seurat_object = data.tnk, features = nk.markers)
+vln.markers.2
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_nk_markers_vln.tiff"), plot = vln.markers.2, device = "tiff", width = 11, height = 9, dpi = 600)
+```
+
+
+```{r}
+# annotation
+annotation <- c(      "CD8+ T Effector",              #0 Temra
+                      "CD8+ Trm Exhausted",           #1 tissue resident
+                      "CD4+ T Central Memory",        #2 Central memory
+                      "CD4+ T Helper",                #3 
+                      "CD4+ T Regulatory",            #4
+                      "CD4+ T Follicular Helper",     #5
+                      "NOISE",                        #6
+                      "NKT",                          #7 NKT effector |  CD8+ T effector
+                      "CD56bright CD16dim NK",        #8
+                      "CD56bright CD16hi NK",         #9   
+                      "Gamma-delta T",                #10  
+                      "T Proliferative",              #11 
+                      "NKT",                          #12 doublets? 
+                      "MAIT",                         #13
+                      "IFN T Responding",             #14
+                      "NOISE"                         #15 T progenitor? pdcs myeloid check cd3
+                      
+)
+#ITGAE ZNF683 markers of tissue resident
+#IL7R marker of central memory
+
+data.tnk <- SetIdent(data.tnk, value = "cluster_res1.2")
+names(annotation) <- levels(data.tnk)
+data.tnk <- RenameIdents(data.tnk, annotation)
+data.tnk <- AddMetaData(data.tnk, metadata = Idents(data.tnk), col.name = "Annotation_2.0")
+Idents(data.tnk) %>% levels
+```
+
+```{r}
+# visualize annotation
+anno2.0 <- DimPlot_scCustom(data.tnk, label = F, repel = T, figure_plot = T) +
+  labs(x = "UMAP 1", y = "UMAP 2")
+anno2.0
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_SCR_CO2_annotation_2.0.tiff"), plot = anno2.0, device = "tiff", width = 8, height = 5, dpi = 600)
+```
+
+```{r}
+# save seurat object
+qsave(data.tnk, file = paste0(data.dir, "outputdata/", patient, "_SCR_CO2_TNK_subset_pp_annotated_no_clean_30-01-24"))
+```
+
+```{r}
+# remove low quality / noise cells
+data.tnk.cl <- subset(data.tnk, subset = Annotation_2.0 != "NOISE")
+
+# number of cells
+Cells(data.tnk.cl) %>% length #9209
+```
+
+```{r}
+# visualize annotation without noise clusters
+data.tnk.cl$Annotation_2.0 <- factor(data.tnk.cl$Annotation_2.0, levels = sort(data.tnk.cl$Annotation_2.0 %>% levels()))
+anno2.1 <- DimPlot_scCustom(data.tnk.cl, 
+                            group.by = "Annotation_2.0",
+                            label = F, 
+                            repel = T, 
+                            figure_plot = T,
+                            colors_use = DiscretePalette_scCustomize(num_colors = 14, palette = "varibow")
+                            ) +
+  labs(x = "UMAP 1", y = "UMAP 2")
+anno2.1
+```
+
+```{r}
+ggsave(filename = paste0(fig.dir, patient, "_SCR_CO2_annotation_2.0_clean.tiff"), plot = anno2.1, device = "tiff", width = 8, height = 5, dpi = 600)
+```
+
+```{r}
+# save seurat object
+qsave(data.tnk.cl, file = paste0(data.dir, "outputdata/", patient, "_SCR_CO2_TNK_subset_pp_annotated_clean_30-01-24"))
+```
+
+```{r}
+# read seurat object
+data.tnk <- qread(paste0(data.dir, "outputdata/",  patient, "_SCR_CO2_TNK_subset_pp_annotated_no_clean_30-01-24"))
+```
+
+
+## TCR Analysis
+
+```{r}
+# map few markers
+markers.tcr <- c("CD4", "CD8B", "HAVCR2", "FOXP3", "MKI67", "GZMK", "IL7R", "TRAV1-2")
+pal <- viridis(n = 10, option = "F")
+fp.markers.tcr <- FeaturePlot_scCustom(data.tnk, features = markers.tcr, colors_use = pal, figure_plot = T, num_columns = 4)
+fp.markers.tcr
+```
+
+```{r}
+# save these markers
+ggsave(filename = paste0(fig.dir, patient, "_TNK_subset_SCR_CO2_tcr_markers_fp.tiff"), plot = fp.markers.tcr, device = "tiff", width = 10, height = 5, dpi = 600)
+```
+
+```{r}
+# visualize clones in T cells
+colorblind_vector <- hcl.colors(n=7, palette = "inferno", fixup = TRUE)
+tcr.plot <- DimPlot(data.tnk.cl, group.by = "cloneSize") +
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)]))
+tcr.plot
+```
+
+```{r}
+# save TCR plot
+ggsave(filename = paste0(fig.dir, patient, "_SCR_CO2_TNK_subset_TCR_clones.tiff"), plot = tcr.plot, device = "tiff", width = 7, height = 5, dpi = 600)
+```
+
+```{r}
+# visualize clones in T cells by timepoint
+tcr.split.plot <- DimPlot(data.tnk.cl, group.by = "cloneSize", split.by = "project") + scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)]))
+tcr.split.plot
+```
+
+```{r}
+# save TCR splitted plot
+ggsave(filename = paste0(fig.dir, patient, "_SCR_CO2_TNK_subsetTCR_clones_splitted.tiff"), plot = tcr.split.plot, device = "tiff", width = 8, height = 5, dpi = 600)
+```

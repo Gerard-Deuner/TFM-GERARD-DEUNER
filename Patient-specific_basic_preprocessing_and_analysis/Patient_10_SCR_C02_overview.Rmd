@@ -1,0 +1,489 @@
+---
+title: "Patient_10_SCR_C02_overview"
+author: "Gerard Deuner Cos"
+date: "2024-01-16"
+output: html_document
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r}
+# load packages
+library(Seurat)
+library(dplyr)
+library(tidyr)
+library(harmony)
+library(ggplot2)
+library(data.table)
+library(qs)
+library(RColorBrewer)
+library(gridExtra)
+library(paletteer)
+library(scDblFinder)
+library(scRepertoire)
+library(stringr)
+```
+
+```{r}
+# set up directories
+proj.dir <- "/Users/gerarddeunercos/Documents/cluster1/shared/projects/SERPENTINE/"
+work.dir <- "/Users/gerarddeunercos/Documents/SERPENTINE/"
+data.dir <- paste0(work.dir, "data/")
+code.dir <- paste0(work.dir, "code/")
+```
+
+```{r}
+# pick the patient
+patient <- "Patient_10"
+```
+
+```{r}
+# load integrated dataset (replicates + timepoints. harmony)
+data <- readRDS(paste0(data.dir, "inputdata/", patient, "_SCR_C02_harmony_integrated_TCR_01-12-2023.rds"))
+```
+
+```{r}
+# preprocess
+data <- data %>%
+  NormalizeData() %>% 
+  FindVariableFeatures(nfeatures = 3000) %>%
+  ScaleData() %>%#vars.to.regress = c("percent.mt")) %>%
+  RunPCA()
+data <- RunHarmony(data, group.by.vars = "project") #sample
+data <- data %>%
+  RunUMAP(reduction = "harmony", dims = 1:25) %>%
+  FindNeighbors(reduction = "harmony", dims = 1:25) %>%
+  FindClusters()
+```
+
+
+```{r}
+# plot integration
+sample.colors <- c("#FFCC00", "#FF6633", "#CC99FF", "#6600CC")
+int.plot <- DimPlot(data, group.by = "sample") + 
+  scale_color_manual(labels = c("CO2.CD45-", "C02.CD45+", "SCR.CD45-", "SCR.CD45+"), values=sample.colors)
+int.plot
+```
+
+```{r}
+# save integration plot
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_timepoints_integration.tiff"), plot = int.plot, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+```{r}
+# check number of cells
+Cells(data) %>% length()
+```
+
+```{r}
+# check technical sources of variation
+FeaturePlot(data, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
+```
+
+```{r}
+# clustering
+resolutions <- c(0.1, 0.25, 0.5, 0.75, 1, 1.2, 1.4, 1.5, 1.6, 1.8, 2, 2.2, 2.4, 2.6, 2.7, 2.8, 3)
+for (res in resolutions){
+  data <- FindClusters(data, resolution = res) %>%
+    AddMetaData(metadata = Idents(data), col.name = paste0("cluster_res", res))
+}
+```
+
+```{r}
+# visualize res1.5 clustering
+umap <- DimPlot(data, reduction = "umap", group.by = "cluster_res1.5", label = T)
+umap
+```
+```{r}
+# save annotation 
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_clustering_res1.5.tiff"), plot = umap, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+```{r}
+# save preprocessed seurat object
+qsave(data, file = paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_harmony_integrated_pp_22-01-24"))
+```
+
+```{r}
+# read preprocessed seurat object
+data <- qread(paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_harmony_integrated_pp_22-01-24"))
+```
+
+```{r}
+# find markers
+data <- SetIdent(data, value = data@meta.data$cluster_res1.5)
+markers <- FindAllMarkers(data, only.pos = T, min.pct = 0.25)
+markers %>%
+  group_by(cluster_res1.5) %>%
+  slice_max(n = 20, order_by = avg_log2FC)
+```
+
+```{r}
+# save markers
+write.csv(markers, file = paste0(data.dir, "markers/", patient, "/", patient, "_res1.5_markers.csv"))
+```
+
+```{r}
+# split df to multiple to save in different sheets
+markers <- markers %>% 
+  group_by(cluster) %>% 
+  arrange(desc(avg_log2FC), .by_group = TRUE)
+markers_split <- split(markers, markers$cluster)
+```
+
+```{r}
+# write to excel file
+openxlsx::write.xlsx(markers_split, 
+                     file = paste0(data.dir, "markers/", patient, "/", patient, "_res1.5_cluster_markers.xlsx"),
+                     overwrite = TRUE)
+```
+
+```{r}
+# map basic cell type markers #
+
+markers.1 <- c("PTPRC",  # immune
+               "CD3E",   # T cells
+               "CD4",    # T CD4+ 
+               "CD8A",   # T CD8+
+               "KLRF1",  # NK 
+               "MS4A1",  # B cells
+               "CD79A",  # plasma
+               "LILRA4", # pDCs
+               "CD68",   # Myeloid
+               "TPSAB1", # mast
+               "EPCAM",  # tumor
+               "CLDN5",  # endothelial
+               "COL1A1", # CAFs
+               "ALB"     # hepatocytes
+               
+)
+marker.labels.1 <- c("Immune", "T cells", "T CD4+", "T CD8+", "NK", "B Cells", 
+                     "Plasma cells", "pDCs", "Myeloid", "Mast", 
+                     "Tumor", "Endothelial", "CAFs", "Hepatocytes")
+
+marker.colors <- c("Classic Area Red","Classic Red", "Classic Red", "Classic Red", "Classic Orange", "Classic Green", "Classic Green", "Blue-Teal", "Classic Blue", "Classic Blue", "Classic Gray", "Orange Light", "Brown", "Purple")
+
+fplots.1 <- lapply(1:length(markers.1), function(x){
+  feature <- markers.1[x]
+  plot_title <- paste(feature, marker.labels.1[x], sep = " - ")
+  FeaturePlot(object = data, reduction = "umap", features = feature) +
+    labs(title = plot_title, x = "UMAP 1", y = "UMAP 2") +
+    scale_colour_gradientn(colours = paletteer_c(paste0("ggthemes::", marker.colors[x]), 13)) + 
+    #scale_colour_gradientn(colours = brewer.pal(n = 7, name = "Greens")) +
+    theme(legend.position = "none",
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.title.y=element_blank(),)
+})
+
+all.fplots1 <- do.call("grid.arrange", c(fplots.1, ncol = 4))
+```
+
+```{r}
+# save markers plots
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_markers_mapping.tiff"), plot = all.fplots1, device = "tiff", width = 12, height = 7, dpi = 600)
+```
+
+```{r}
+# map basic cell type markers #
+
+markers.3 <- c("PTPRC",  # immune
+               "CD3E",   # T cells
+               "KLRF1",  # NK 
+               "MS4A1",  # B cells
+               "CD68",   # Myeloid
+               "EPCAM"  # tumor
+               
+)
+marker.labels.3 <- c("Immune", "T cells", "NK", "B Cells", "Myeloid", "Tumor")
+
+fplots.3 <- lapply(1:length(markers.3), function(x){
+  feature <- markers.3[x]
+  plot_title <- paste(feature, marker.labels.3[x], sep = " - ")
+  FeaturePlot(object = data, reduction = "umap", features = feature) +
+    labs(title = plot_title, x = "UMAP 1", y = "UMAP 2") +
+    #scale_colour_gradientn(colours = paletteer_c(paste0("ggthemes::", marker.colors[x]), 13)) + 
+    scale_colour_gradientn(colours = brewer.pal(n = 7, name = "Greens")) +
+    theme(legend.position = "none",
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.title.y=element_blank(),)
+})
+
+all.fplots3 <- do.call("grid.arrange", c(fplots.3, ncol = 3))
+```
+
+```{r}
+# save markers plots
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_basic_markers.tiff"), plot = all.fplots3, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+umap
+```
+
+```{r}
+# Basic Annotation
+annotation <- c(      
+                      "T cells",      #0
+                      "T cells",      #1
+                      "T cells",      #2
+                      "T cells",      #3
+                      "NK",           #4
+                      "Tumor",        #5
+                      "Tumor",        #6
+                      "NK",           #7
+                      "Myeloid",      #8
+                      "T cells",      #9
+                      "T cells",      #10
+                      "T cells",      #11
+                      "T cells",      #12
+                      "Tumor",        #13
+                      "T cells",      #14
+                      "Myeloid",      #15
+                      "Tumor",        #16
+                      "T cells",      #17
+                      "Tumor",        #18
+                      "NK",           #19
+                      "T cells",      #20
+                      "Tumor",        #21
+                      "Tumor",        #22
+                      "Endothelial",  #23
+                      "B cells",      #24
+                      "Myeloid",        #25
+                      "T cells",      #26
+                      "pDCs",         #27
+                      "Myeloid",      #28
+                      "Tumor",      #29
+                      "T cells"       #30
+                      
+)
+
+data <- SetIdent(data, value = data@meta.data$cluster_res1.5)
+names(annotation) <- levels(data)
+data <- RenameIdents(data, annotation)
+data <- AddMetaData(data, metadata = Idents(data), col.name = "Annotation_1.0")
+Idents(data) %>% levels
+```
+
+```{r}
+# visualize annotation
+anno <- DimPlot(data, group.by = "Annotation_1.0", label = F) + 
+  scale_color_manual(values = c("red", "darkorange","#333333", "blue", "gold", "darkgreen","skyblue")) + 
+  labs(title = "Anotation 1.0", x = "UMAP 1", y = "UMAP 2")
+anno
+```
+
+```{r}
+# save annotation 
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_annotation_1.0.tiff"), plot = anno, device = "tiff", width = 8, height = 7, dpi = 600)
+```
+
+```{r}
+# save annotated seurat object
+qsave(data, file = paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_harmony_integrated_pp_annotated_22-01-24"))
+```
+
+```{r}
+# read annotated seurat object
+data <- qread(paste0(data.dir, "tmpdata/", patient, "_SCR_CO2_harmony_integrated_pp_annotated_22-01-24"))
+qsave(data, file = "/Users/gerarddeunercos/Downloads/Patient_10_SCR_CO2_TNK_subset_pp_annotated_clean_30-01-24")
+```
+
+```{r}
+anno.fplots <- do.call("grid.arrange", c(fplots.1, ncol = 2))
+anno.fplots1.1 <- anno + anno.fplots[1:4]
+anno.fplots1.1
+```
+
+```{r}
+# save annnotation + markers plots
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_annotation_markers_1.tiff"), plot = anno.fplots1.1, device = "tiff", width = 10, height = 7, dpi = 600)
+```
+
+```{r}
+anno.fplots1.2 <- anno + anno.fplots[5:7]
+anno.fplots1.2
+```
+
+```{r}
+# save annotation + markers plots
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_annotation_markers_2.tiff"), plot = anno.fplots1.2, device = "tiff", width = 10, height = 7, dpi = 600)
+```
+
+```{r}
+# map proliferation, exhaustion and treg markers 
+
+markers.2 <- c(
+              "CCR7",  # naive
+              "CD69",  # activated
+              "CTLA4", # exhaustion
+              "MKI67", # proliferation
+              "FOXP3"  # treg
+              )
+marker.labels.2 <- c("Naive", "activated", "Exhaustion", "Proliferation", "Tregs")
+
+fplots.2 <- lapply(1:length(markers.2), function(x){
+  feature <- markers.2[x]
+  plot_title <- paste(feature, marker.labels.2[x], sep = " - ")
+  FeaturePlot(object = data, reduction = "umap", features = feature) +
+    labs(title = plot_title, x = "UMAP 1", y = "UMAP 2") +
+    scale_colour_gradientn(colours = brewer.pal(n = 7, name = "YlOrRd")) +
+    theme(legend.position = "none",
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank())
+})
+
+anno.fplots2 <- anno + do.call("grid.arrange", c(fplots.2, nrow = 3))
+anno.fplots2
+```
+
+```{r}
+# save annotation and these other markers plots
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_annotation_markers_3.tiff"), plot = anno.fplots2, device = "tiff", width = 14, height = 7, dpi = 600)
+```
+
+## TCR 
+
+```{r eval = FALSE}
+S1 <- read.csv(paste0(proj.dir, "data/SERPENTINE_28_29/jobs/SPE_1_10_SCR_A_FRESH_CD45neg/SPE_1_10_SCR_A_FRESH_CD45neg/outs/per_sample_outs/SPE_1_10_SCR_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv"))
+S2 <- read.csv(paste0(proj.dir, "data/SERPENTINE_28_29/jobs/SPE_1_10_SCR_A_FRESH_CD45pos/SPE_1_10_SCR_A_FRESH_CD45pos/outs/per_sample_outs/SPE_1_10_SCR_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv"))
+S3<- read.csv(paste0(proj.dir,"data/SERPENTINE_36_37/jobs/SPE_1_10_C2_A_FRESH_CD45neg/SPE_1_10_C2_A_FRESH_CD45neg/outs/per_sample_outs/SPE_1_10_C2_A_FRESH_CD45neg/vdj_t/filtered_contig_annotations.csv")) #not have it yet
+S4 <- read.csv(paste0(proj.dir,"data/SERPENTINE_36_37/jobs/SPE_1_10_C2_A_FRESH_CD45pos/SPE_1_10_C2_A_FRESH_CD45pos/outs/per_sample_outs/SPE_1_10_C2_A_FRESH_CD45pos/vdj_t/filtered_contig_annotations.csv")) #not have it yet
+
+contig_list_TCR <- list(S2, S4) #, S3, S4)
+
+# TCR
+combined_tcr <- combineTCR(contig_list_TCR, 
+                ID = c("SPE_1_10_SCR_A_FRESH_CD45pos", "SPE_1_10_C2_A_FRESH_CD45pos"),
+               # ID = c("SPE_1_10_SCR_A_FRESH_CD45neg", "SPE_1_10_SCR_A_FRESH_CD45pos"), #, "SPE_1_10_C2_A_FRESH_CD45neg", "SPE_1_10_C2_A_FRESH_CD45pos"), 
+                samples = c("SERPENTINE_28_29", "SERPENTINE_36_37") #, "SERPENTINE_36_37", "SERPENTINE_36_37")
+                )
+
+# rename to match sc
+#combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45neg$barcode <- str_remove_all(combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45neg$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_28_29_SPE_1_10_SCR_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+combined_tcr$SERPENTINE_36_37_SPE_1_10_C2_A_FRESH_CD45pos$barcode <- str_remove_all(combined_tcr$SERPENTINE_36_37_SPE_1_10_C2_A_FRESH_CD45pos$barcode, pattern = "-1$|-2$|-3$")
+#combined_tcr$SERPENTINE__09_SPE_1_01_C2D1_A_FRESH_2$barcode <- str_remove_all(combined_tcr$SERPENTINE_08_09_SPE_1_01_C2D1_A_FRESH_2$barcode, pattern = "-1$|-2$|-3$")
+
+data <- combineExpression(
+  combined_tcr, 
+  data, 
+  chain = "both",
+  cloneCall="aa", 
+  proportion = FALSE, 
+  cloneSize=c(Single=1, Small=5, Medium=20, Large=50, Hyperexpanded=100))
+```
+
+```{r}
+#Define color palette 
+colorblind_vector <- hcl.colors(n=7, palette = "inferno", fixup = TRUE)
+tcr.plot <- DimPlot(data, group.by = "cloneSize") +
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)]))
+tcr.plot
+```
+
+```{r}
+# save TCR plot
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_TCR_clones.tiff"), plot = tcr.plot, device = "tiff", width = 10, height = 7, dpi = 600)
+```
+
+```{r}
+tcr.split.plot <- DimPlot(data, group.by = "cloneSize", split.by = "project") + scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)]))
+tcr.split.plot
+```
+
+```{r}
+# save TCR splitted plot
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_TCR_clones_splitted.tiff"), plot = tcr.split.plot, device = "tiff", width = 12, height = 7, dpi = 600)
+```
+
+```{r}
+#TCR + markers
+TCR.markers.plot <- tcr.plot + do.call("grid.arrange", c(fplots.2, nrow = 3))
+TCR.markers.plot
+```
+
+```{r}
+# save TCR splitted plot
+ggsave(filename = paste0(work.dir, "figures/", patient, "/", patient, "_SCR_CO2_TCR_clones_markers.tiff"), plot = TCR.markers.plot, device = "tiff", width = 14, height = 7, dpi = 600)
+```
+
+```{r}
+# save object
+qsave(data, file = paste0(data.dir, "outputdata/", patient, "_SCR_CO2_harmony_integrated_pp_annotated_TCR_22-01-24"))
+```
+
+```{r}
+# read object
+data <- qread(paste0(data.dir, "outputdata/", patient, "_SCR_CO2_harmony_integrated_pp_annotated_TCR_22-01-24"))
+```
+
+```{r}
+# split umap per timepoint
+DimPlot_scCustom(data %>% subset(timepoint == "SCR"), 
+                 group.by = "sample", 
+                 figure_plot = F
+                 ) + 
+  labs(title = "T0 (pre-ICI)", x = "UMAP 1", y = "UMAP 2")
+```
+
+```{r}
+DimPlot_scCustom(data %>% subset(timepoint != "SCR"), 
+                 group.by = "sample", 
+                 figure_plot = F
+                 ) + 
+  labs(title = "T1 (post-ICI)", x = "UMAP 1", y = "UMAP 2")
+```
+
+```{r}
+colorblind_vector <- hcl.colors(n=7, palette = "inferno", fixup = TRUE)
+DimPlot_scCustom(data %>% subset(timepoint == "SCR"), 
+                 group.by = "cloneSize", 
+                 figure_plot = F
+                 ) + 
+  labs(title = "T0 (pre-ICI)", x = "UMAP 1", y = "UMAP 2") + 
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)]))
+```
+
+```{r}
+DimPlot_scCustom(data %>% subset(timepoint != "SCR"), 
+                 group.by = "cloneSize", 
+                 figure_plot = F
+                 ) + 
+  labs(title = "T1 (post-ICI)", x = "UMAP 1", y = "UMAP 2") + 
+  scale_color_manual(values=rev(colorblind_vector[c(1,3,5,6,7)]))
+```
+
+
+```{r}
+genes <- c("CD3E", "CD4", "CD8B", "FOXP3", "HAVCR2", "MKI67")
+
+fplots <- lapply(1:length(genes), function(x){
+  
+  feature <- genes[x]
+
+  FeaturePlot_scCustom(data, reduction = "umap", features = feature) +
+    labs(x = "UMAP 1", y = "UMAP 2") +
+    scale_colour_gradientn(colours = brewer.pal(n = 7, name = "Reds")) +
+    theme(legend.position = "none",
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.title.y=element_blank(),)
+})
+
+all.fplots <- do.call("grid.arrange", c(fplots, ncol = 3))
+```

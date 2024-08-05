@@ -1,0 +1,420 @@
+---
+title: "Patient_03_SCR_C02_myeloid_annotation"
+author: "Gerard Deuner Cos"
+date: "2024-02-08"
+output: html_document
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+## Preprocessing
+
+```{r}
+# load packages
+library(Seurat)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+library(qs)
+library(harmony)
+library(RColorBrewer)
+library(gridExtra)
+library(scCustomize)
+library(viridis)
+library(dittoSeq)
+```
+
+```{r}
+# select patient & subset
+patient <- "Patient_03"
+subset <- "Myeloid" # can be none ("")
+```
+
+```{r}
+# import path variables 
+source("../../config.R")
+```
+
+```{r}
+# load annotated s.object
+data <- qread(file.path(sp.data.dir, "outputdata", paste0(patient, "_SCR_CO2_harmony_integrated_pp_annotated_TCR_22-01-24")))
+
+# subset the Myeloid clusters
+data.m <- subset(data, subset = Annotation_1.0 %in% c("Myeloid", "pDCs"))
+
+# number of cells
+Cells(data.m) %>% length #900
+```
+
+```{r}
+# store subsetted object 
+qsave(data.m, file = file.path(sp.data.dir, "tmpdata", paste0(patient, "_SCR_CO2_myeloid_subset_05-02-24")))
+```
+
+```{r}
+# read subsetted object 
+data.m <- qread(file.path(sp.data.dir, "tmpdata", paste0(patient, "_SCR_CO2_myeloid_subset_05-02-24")))
+```
+
+```{r}
+# plot (whole) annotation
+anno <- DimPlot_scCustom(data, 
+                         group.by = "Annotation_1.0", 
+                         label = F, 
+                         colors_use = c("red", "blue", "darkorange", "darkgreen"),
+                         figure_plot = T) 
+anno
+```
+
+```{r}
+data.m <- data.m %>%
+  NormalizeData() %>%
+  FindVariableFeatures(nfeatures = 3000) %>%
+  ScaleData() %>% 
+  RunPCA()
+```
+
+```{r}
+ElbowPlot(data.m, ndims = 50)
+```
+
+```{r}
+PC_Plotting(data.m, dim_number = 2)
+```
+
+```{r}
+# Examine and visualize PCA results a few different ways
+print(data.m[["pca"]], dims = 1:10, nfeatures = 5) # find genes explaining the different PCs
+```
+
+```{r}
+data.m <- RunHarmony(data.m, group.by.vars = "project") 
+data.m <- data.m %>%
+  RunUMAP(reduction = "harmony", dims = 1:20) %>%
+  FindNeighbors(reduction = "harmony", dims = 1:20) %>%
+  FindClusters()
+```
+
+```{r}
+# change sample metadata names
+data.m$sample_id <- data.m$sample
+data.m$sample[data.m$sample_id == "SPE_1_03_C02_A_FRESH_C45"] <- "C02"
+data.m$sample[data.m$sample_id == "SPE_1_03_SCR_A_FRESH"] <- "SCR"
+```
+
+```{r}
+# check for batch effects - check correction
+p1 <- DimPlot_scCustom(data.m, reduction = "pca", group.by = "project") + NoLegend() + 
+DimPlot_scCustom(data.m, reduction = "harmony", group.by = "project")
+p1
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_integration_correction.tiff"), plot = p1, device = "tiff", width = 8, height = 5, dpi = 600)
+```
+
+```{r}
+p2 <- FeaturePlot_scCustom(data.m, features = c("percent.mt", "nFeature_RNA", "nCount_RNA", "doublet_score"))
+p2
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_fp_technical_sources_.tiff"), plot = p2, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+p3 <- VlnPlot_scCustom(data.m, features = c("percent.mt", "nFeature_RNA", "nCount_RNA"), group.by = "timepoint")
+p3
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_vlnp_technical_sources_.tiff"), plot = p3, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+# visualize integration
+sample.colors <- c("#FF6633","#FFCC00", "#6600CC", "#CC99FF")
+int.plot <- DimPlot_scCustom(data.m, group.by = "sample", colors_use = sample.colors, figure_plot = T, )
+int.plot
+```
+
+```{r}
+# save integration plot
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_timepoints_integration.tiff"), plot = int.plot, device = "tiff", width = 6, height = 5, dpi = 600)
+```
+
+```{r}
+# clustering
+data.m <- data.m %>% 
+  FindClusters(resolution = 1.3) %>%
+  AddMetaData(metadata = Idents(data.m), col.name = paste0("cluster_res", "1.3"))
+
+cl <- DimPlot_scCustom(data.m, group.by = "cluster_res1.3", label = T, repel = T, figure_plot = T)
+cl
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_clustering_res1.3.tiff"), plot = cl, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+data.m <- SetIdent(data.m, value = "cluster_res1.3")
+Idents(data.m) %>% levels()
+```
+
+```{r}
+# save preprocessed seurat object
+qsave(data.m, file = file.path(sp.data.dir, "tmpdata", paste0(patient, "_SCR_CO2_myeloid_subset_pp_05-02-24")))
+```
+
+```{r}
+# read the seurat object
+data.m <- qread(file = file.path(sp.data.dir, "tmpdata", paste0(patient, "_SCR_CO2_myeloid_subset_pp_05-02-24")))
+```
+
+## Annotation
+
+```{r}
+# find markers
+data.m <- SetIdent(data.m, value = "cluster_res1.3")
+markers <- FindAllMarkers(data.m, only.pos = T, min.pct = 0.25)
+```
+
+```{r}
+# save markers
+write.csv(markers, file = paste0(sp.data.dir, "/", "markers/", patient, "/", patient, "_myeloid_subset_res1.3_markers.csv"))
+```
+
+```{r}
+# read markers
+markers <- read.csv(file = file.path(sp.data.dir, "/", "markers", patient, paste0(patient, "_myeloid_subset_res1.3_markers.csv")))
+```
+
+```{r}
+# split df to multiple to save in different sheets
+markers <- markers %>% 
+  group_by(cluster) %>% 
+  arrange(desc(avg_log2FC), .by_group = TRUE)
+markers_split <- split(markers, markers$cluster)
+```
+
+```{r}
+# write to excel file
+openxlsx::write.xlsx(markers_split, 
+                     file = file.path(sp.data.dir, "markers", patient, paste0(patient, "_myeloid_subset_res1.3_cluster_markers.xlsx")),
+                     overwrite = TRUE)
+```
+
+```{r}
+pal <- viridis(n = 10, option = "F")
+
+m.markers <- c(
+                   "TPSAB1",     # Mast
+                   "CLEC9A",     # cDC1
+                   "CD1C",       # cDC2
+                   "LILRA4",     # pDCs
+                   "FCN1",       # Mono
+                   "CD14",       # CD14 Mono
+                   "FCGR3A",     # CD16 Mono
+                   "CD68",       # Macro
+                   "CD5L",       # TRM Kupffer-like TAM
+                   "MKI67",      # Prolif. TAM
+                   "CX3CR1",     # Reg-TAM
+                   "APOE",       # LA-TAM
+                   "IL1B",       # Inflam. TAM
+                   "ISG15",      # IFN-TAM
+                   "VCAN",       # Angio. TAM
+                   "SPP1",       # Infla, LA, Angio TAMs
+                   "C1QC",       # LA, Inflam, RTM TAMs
+                   "TREM2",      # cancer prognosis --> bad
+                   "S100A9",     # Monos (CD14), Inflam, angio, TAMs
+                   "NR4A1"       # tissue resident monos
+)
+
+fp.m.markers <- FeaturePlot_scCustom(data.m, features = m.markers, colors_use = pal, figure_plot = T)
+fp.m.markers
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_markers_fp.tiff"), plot = fp.m.markers, device = "tiff", width = 13, height = 8, dpi = 600)
+```
+
+```{r}
+dp.m.markers <- DotPlot_scCustom(data.m, features = m.markers, x_lab_rotate = T)
+dp.m.markers
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_markers_dp.tiff"), plot = dp.m.markers, device = "tiff", width = 7, height = 6, dpi = 600)
+```
+
+```{r}
+vln.m.markers <- VlnPlot_scCustom(seurat_object = data.m, features = m.markers)
+vln.m.markers
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_markers_vln.tiff"), plot = vln.m.markers, device = "tiff", width = 16, height = 11, dpi = 600)
+```
+
+```{r}
+top_markers <- Extract_Top_Markers(marker_dataframe = markers, num_genes = 5, named_vector = FALSE,
+    make_unique = TRUE)
+cdp.m.markers <- Clustered_DotPlot(data.m, features = top_markers, plot_km_elbow = F)
+cdp.m.markers
+```
+
+```{r}
+tiff(paste0(sp.figs.dir, "/", patient, "_myeloid_subset_SCR_CO2_markers_cdp.tiff"), res = 600, height = 9, width = 8, units = "in")
+cdp.m.markers
+dev.off()
+```
+
+
+```{r}
+annotation <-c("Angio TAM",               #0 
+               "Neutrophil-like",         #1 low num features and counts
+               "CD14+ CD16- Mono",        #2
+               "LA TAM",                  #3 
+               "NOISE",                   #4 high MT #subclustering
+               "Anti Inflam TAM",         #5
+               "IFN TAM",                 #6 
+               "NOISE",                   #7 very weird genes
+               "IFN TAM",                 #8
+               "NOISE",                   #9  T cell doublets
+               "NOISE",                   #10 pDC doublets #subclustering
+               "Neutrophil-like"          #11 
+)
+
+data.m <- SetIdent(data.m, value = "cluster_res1.3")
+names(annotation) <- levels(data.m)
+data.m <- RenameIdents(data.m, annotation)
+data.m <- AddMetaData(data.m, metadata = Idents(data.m), col.name = "Annotation_2.0")
+Idents(data.m) %>% levels
+
+# https://www.cell.com/trends/immunology/fulltext/S1471-4906(22)00094-1 annotation consensus from this paper
+```
+
+```{r}
+# Subcluster clusters 4 and 10
+data.m <- SetIdent(data.m, value = "cluster_res1.3") %>%
+  FindSubCluster(cluster = c("10"), 
+                 graph.name = "RNA_snn", 
+                 resolution = 1, 
+                 subcluster.name = "cluster_res1.3.1") %>%
+  SetIdent(value = "cluster_res1.3.1") %>% 
+  FindSubCluster(cluster = c("4"), 
+                 graph.name = "RNA_snn", 
+                 resolution = 1, 
+                 subcluster.name = "cluster_res1.3.1")
+
+data.m$cluster_res1.3.1 <- as.factor(data.m$cluster_res1.3.1)
+
+cl2 <- DimPlot(data.m, group.by = "cluster_res1.3.1")
+cl2
+```
+
+```{r}
+# find markers of subclustering
+data.m <- SetIdent(data.m, value = "cluster_res1.3.1")
+markers <- FindAllMarkers(data.m, only.pos = T, min.pct = 0.25)
+
+# save markers
+write.csv(markers, file = paste0(sp.data.dir, "/", "markers/", patient, "/", patient, "_myeloid_subset_res1.3.1_markers.csv"))
+
+# split by cluster
+markers <- markers %>% 
+  group_by(cluster) %>% 
+  arrange(desc(avg_log2FC), .by_group = TRUE)
+markers_split <- split(markers, markers$cluster)
+
+# save into excel file
+openxlsx::write.xlsx(markers_split, 
+                     file = file.path(sp.data.dir, "markers", patient, paste0(patient, "_myeloid_subset_res1.3.1_cluster_markers.xlsx")),
+                     overwrite = TRUE)
+```
+
+```{r}
+# re-annotate
+annotation <-c("Angio TAM",               #0 
+               "Neutrophil-like",         #1 low num features and counts
+               "cDC2",                    #10_0 
+               "pDC",                     #10_1
+               "Neutrophil-like",         #11
+               "CD14+ CD16- Mono",        #2
+               "LA TAM",                  #3 
+               "NOISE",                   #4_0 still NOISE
+               "NOISE",                   #4_1 still NOISE
+               "NOISE",                   #4_2 still NOISE
+               "Anti Inflam TAM",         #5
+               "IFN TAM",                 #6 
+               "NOISE",                   #7 very weird genes
+               "IFN TAM",                 #8
+               "NOISE"                    #9  T cell doublets
+              
+)
+
+data.m <- SetIdent(data.m, value = "cluster_res1.3.1")
+names(annotation) <- levels(data.m)
+data.m <- RenameIdents(data.m, annotation)
+data.m <- AddMetaData(data.m, metadata = Idents(data.m), col.name = "Annotation_2.0")
+Idents(data.m) %>% levels
+```
+
+```{r}
+# visualize annotation
+anno2.0 <- DimPlot_scCustom(data.m, label = F, repel = T, figure_plot = T) +
+  labs(x = "UMAP 1", y = "UMAP 2")
+anno2.0
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_SCR_CO2_myeloid_annotation_2.0.tiff"), plot = anno2.0, device = "tiff", width = 8, height = 5, dpi = 600)
+```
+
+```{r}
+# save seurat object
+qsave(data.m, file = file.path(sp.data.dir, "outputdata", paste0(patient, "_SCR_CO2_myeloid_subset_pp_annotated_no_clean_05-02-24")))
+```
+
+```{r}
+# remove low quality / noise cells
+data.m.cl <- subset(data.m, subset = Annotation_2.0 != "NOISE")
+
+# number of cells
+Cells(data.m.cl) %>% length #769
+```
+
+```{r}
+# visualize annotation without noise clusters
+data.m.cl$Annotation_2.0 <- factor(data.m.cl$Annotation_2.0, levels = sort(data.m.cl$Annotation_2.0 %>% levels()))
+anno2.1 <- DimPlot_scCustom(data.m.cl, 
+                            group.by = "Annotation_2.0",
+                            label = F, 
+                            repel = T, 
+                            figure_plot = T,
+                            colors_use = DiscretePalette_scCustomize(num_colors = 14, palette = "varibow")
+                            ) +
+  labs(x = "UMAP 1", y = "UMAP 2")
+anno2.1
+```
+
+```{r}
+ggsave(filename = paste0(sp.figs.dir, "/", patient, "_SCR_CO2_myeloid_annotation_2.0_clean.tiff"), plot = anno2.1, device = "tiff", width = 8, height = 5, dpi = 600)
+```
+
+```{r}
+# save seurat object
+qsave(data.m.cl, file = file.path(sp.data.dir, "outputdata", paste0(patient, "_SCR_CO2_myeloid_subset_pp_annotated_clean_05-02-24")))
+```
+
+```{r}
+# read seurat object
+data.m <- qread(file.path(sp.data.dir, "outputdata",  paste0(patient, "_SCR_CO2_myeloid_subset_pp_annotated_no_clean_05-02-24")))
+```
+
+
+
