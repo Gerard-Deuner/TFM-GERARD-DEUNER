@@ -1,0 +1,756 @@
+---
+title: "Integration_visualization"
+author: "Gerard Deuner Cos"
+date: "2024-03-06"
+output: html_document
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r}
+#load libraries
+library(dplyr)
+library(gt)
+library(gtsummary)
+library(gtExtras)
+library(ggplot2)
+```
+
+```{r}
+# import path variables 
+source("../../config.R")
+```
+
+```{r}
+# set up directories
+work.dir <- sp.proj.dir
+data.dir <- sp.data.dir
+metrics.dir <- paste(data.dir, "metrics", sep = "/")
+```
+
+
+# Subproject - Annotation_2.0
+
+```{r}
+# read individual method-setting-specific metrics dfs
+metrics.scvi.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_scVI_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scVI")) 
+
+metrics.scanvi2.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno2.0_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 2.0")) 
+
+metrics.scanvi1.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno1.0_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 1.0")) 
+
+metrics.scgen2.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno2.0_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 2.0")) 
+
+metrics.scgen1.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno1.0_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 1.0")) 
+
+metrics.bbknn.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_BBKNN_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "BBKNN")) 
+
+metrics.harmony.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_harmony_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Harmony")) 
+
+metrics.mnn.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_MNN_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "FastMNN")) 
+
+metrics.scanorama.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_scanorama_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Scanorama")) 
+
+metrics.hvg.sp.2 <- read.csv(
+  paste(metrics.dir, "Combined_HVG_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Unintegrated")) 
+```
+
+```{r}
+# merge all the metrics
+metrics.sp.2 <- cbind(
+  metrics.scvi.sp.2,
+  metrics.scanvi1.sp.2,
+  metrics.scanvi2.sp.2,
+  metrics.scgen1.sp.2,
+  metrics.scgen2.sp.2,
+  metrics.bbknn.sp.2,
+  metrics.harmony.sp.2,
+  metrics.mnn.sp.2,
+  metrics.scanorama.sp.2,
+  metrics.hvg.sp.2
+)
+```
+
+```{r}
+# save metrics
+write.csv(metrics.sp.2, file = paste(metrics.dir, "Combined_ALL_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"))
+```
+
+```{r}
+# read metrics
+metrics.sp.2 <- read.csv(file = paste(metrics.dir, "Combined_ALL_integration-subproject-Annotation_2.0_scIB_metrics.csv", sep = "/"), row.names="X")
+```
+
+# Subproject - Annotation_1.0
+
+```{r}
+# read individual method-setting-specific metrics dfs
+metrics.scvi.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_scVI_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scVI")) 
+
+metrics.scanvi2.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno2.0_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 2.0")) 
+
+metrics.scanvi1.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno1.0_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 1.0")) 
+
+metrics.scgen2.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno2.0_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 2.0")) 
+
+metrics.scgen1.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno1.0_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 1.0")) 
+
+metrics.bbknn.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_BBKNN_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "BBKNN")) 
+
+metrics.harmony.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_harmony_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Harmony")) 
+
+metrics.mnn.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_MNN_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "FastMNN")) 
+
+metrics.scanorama.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_scanorama_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Scanorama")) 
+
+metrics.hvg.sp.1 <- read.csv(
+  paste(metrics.dir, "Combined_HVG_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Unintegrated")) 
+```
+
+```{r}
+# merge all the metrics
+metrics.sp.1 <- cbind(
+  metrics.scvi.sp.1,
+  metrics.scanvi1.sp.1,
+  metrics.scanvi2.sp.1,
+  metrics.scgen1.sp.1,
+  metrics.scgen2.sp.1,
+  metrics.bbknn.sp.1,
+  metrics.harmony.sp.1,
+  metrics.mnn.sp.1,
+  metrics.scanorama.sp.1,
+  metrics.hvg.sp.1
+)
+```
+
+```{r}
+# save metrics
+write.csv(metrics.sp.1, file = paste(metrics.dir, "Combined_ALL_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"))
+```
+
+```{r}
+# read metrics
+metrics.sp.1 <- read.csv(file = paste(metrics.dir, "Combined_ALL_integration-subproject-Annotation_1.0_scIB_metrics.csv", sep = "/"),row.names="X")
+```
+
+# Sample - Annotation_2.0
+
+```{r}
+# read individual method-setting-specific metrics dfs
+metrics.scvi.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_scVI_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scVI")) 
+
+metrics.scanvi2.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno2.0_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 2.0")) 
+
+metrics.scanvi1.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno1.0_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 1.0")) 
+
+metrics.scgen2.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno2.0_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 2.0")) 
+
+metrics.scgen1.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno1.0_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 1.0")) 
+
+metrics.bbknn.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_BBKNN_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "BBKNN")) 
+
+metrics.harmony.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_harmony_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Harmony")) 
+
+metrics.mnn.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_MNN_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "FastMNN")) 
+
+metrics.scanorama.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_scanorama_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Scanorama")) 
+
+metrics.hvg.s.2 <- read.csv(
+  paste(metrics.dir, "Combined_HVG_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Unintegrated")) 
+```
+
+```{r}
+# merge all the metrics
+metrics.s.2 <- cbind(
+  metrics.scvi.s.2,
+  metrics.scanvi1.s.2,
+  metrics.scanvi2.s.2,
+  metrics.scgen1.s.2,
+  metrics.scgen2.s.2,
+  metrics.bbknn.s.2,
+  metrics.harmony.s.2,
+  metrics.mnn.s.2,
+  metrics.scanorama.s.2,
+  metrics.hvg.s.2
+)
+```
+
+```{r}
+# save metrics
+write.csv(metrics.s.2, file = paste(metrics.dir, "Combined_ALL_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"))
+```
+
+```{r}
+# read metrics
+metrics.s.2 <- read.csv(file = paste(metrics.dir, "Combined_ALL_integration-sample-Annotation_2.0_scIB_metrics.csv", sep = "/"),row.names="X")
+```
+
+# Sample - Annotation_1.0
+
+```{r}
+# read individual method-setting-specific metrics dfs
+metrics.scvi.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_scVI_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scVI")) 
+
+metrics.scanvi2.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno2.0_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 2.0")) 
+
+metrics.scanvi1.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_scANVI_anno1.0_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scANVI 1.0")) 
+
+metrics.scgen2.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno2.0_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 2.0")) 
+
+metrics.scgen1.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_scGen_anno1.0_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "scGen 1.0")) 
+
+metrics.bbknn.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_BBKNN_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "BBKNN")) 
+
+metrics.harmony.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_harmony_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Harmony")) 
+
+metrics.mnn.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_MNN_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "FastMNN")) 
+
+metrics.scanorama.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_scanorama_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Scanorama")) 
+
+metrics.hvg.s.1 <- read.csv(
+  paste(metrics.dir, "Combined_HVG_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"),
+  row.names = 1,
+  col.names = c("Metric", "Unintegrated")) 
+```
+
+```{r}
+# merge all the metrics
+metrics.s.1 <- cbind(
+  metrics.scvi.s.1,
+  metrics.scanvi1.s.1,
+  metrics.scanvi2.s.1,
+  metrics.scgen1.s.1,
+  metrics.scgen2.s.1,
+  metrics.bbknn.s.1,
+  metrics.harmony.s.1,
+  metrics.mnn.s.1,
+  metrics.scanorama.s.1,
+  metrics.hvg.s.1
+)
+```
+
+```{r}
+# save metrics
+write.csv(metrics.s.1, file = paste(metrics.dir, "Combined_ALL_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"))
+```
+
+```{r}
+# save metrics
+metrics.s.1 <- read.csv(file = paste(metrics.dir, "Combined_ALL_integration-sample-Annotation_1.0_scIB_metrics.csv", sep = "/"), row.names="X")
+```
+
+# Merging
+
+```{r}
+# transpose the dfs
+metrics.sp.1 <- t(metrics.sp.1) %>% as.data.frame()
+metrics.sp.2 <- t(metrics.sp.2) %>% as.data.frame()
+metrics.s.1 <- t(metrics.s.1) %>% as.data.frame()
+metrics.s.2 <- t(metrics.s.2) %>% as.data.frame()
+```
+
+```{r}
+# add additional variables
+metrics.sp.1$Method <- rownames(metrics.sp.1)
+metrics.sp.1$Batch <- rep("Subproject", 10)
+metrics.sp.1$Annotation <- rep("1.0", 10)
+
+metrics.sp.2$Method <- rownames(metrics.sp.2)
+metrics.sp.2$Batch <- rep("Subproject", 10)
+metrics.sp.2$Annotation <- rep("2.0", 10)
+
+metrics.s.1$Method <- rownames(metrics.s.1)
+metrics.s.1$Batch <- rep("Sample", 10)
+metrics.s.1$Annotation <- rep("1.0", 10)
+
+metrics.s.2$Method <- rownames(metrics.s.2)
+metrics.s.2$Batch <- rep("Sample", 10)
+metrics.s.2$Annotation <- rep("2.0", 10)
+```
+
+```{r}
+# change index to Method_Batch_Annotation
+rownames(metrics.sp.1) <- paste(metrics.sp.1$Method, metrics.sp.1$Batch, metrics.sp.1$Annotation, sep = "_")
+rownames(metrics.sp.2) <- paste(metrics.sp.2$Method, metrics.sp.2$Batch, metrics.sp.2$Annotation, sep = "_")
+rownames(metrics.s.1) <- paste(metrics.s.1$Method, metrics.s.1$Batch, metrics.s.1$Annotation, sep = "_")
+rownames(metrics.s.2) <- paste(metrics.s.2$Method, metrics.s.2$Batch, metrics.s.2$Annotation, sep = "_")
+```
+
+```{r}
+# add setting column
+metrics.sp.1$Setting <- rownames(metrics.sp.1)
+metrics.sp.2$Setting <- rownames(metrics.sp.2)
+metrics.s.1$Setting <- rownames(metrics.s.1)
+metrics.s.2$Setting <- rownames(metrics.s.2)
+```
+
+```{r}
+metrics <- rbind(
+  metrics.sp.1,
+  metrics.sp.2,
+  metrics.s.1,
+  metrics.s.2
+)
+metrics
+```
+
+```{r}
+# remove unwanted metrics
+metrics <- metrics[,!colnames(metrics) %in% c("cell_cycle_conservation","trajectory")]
+metrics
+```
+
+```{r}
+# save metrics merged df 
+write.csv(metrics, file = paste(metrics.dir, "Combined_merged_scIB_metrics.csv", sep = "/"))
+```
+
+
+## Visualization
+
+```{r}
+# visualize table -- Subproject - Annotation 1.0
+metrics %>%
+  dplyr::filter(Batch == "Subproject", Annotation == "1.0") %>%
+  dplyr::select(!c("Method", "Batch", "Annotation", "Setting")) %>%
+  gt(rownames_to_stub = T) %>%
+  tab_header(title = md("**scIB Metrics**"),
+               subtitle = md("Integration by **Subproject**  &  label = **Annotation 1.0**")) %>%
+  cols_align(align = "center", columns = vars(colnames(.))) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>% 
+  tab_options(
+    table_body.hlines.style = "none",
+    column_labels.border.top.color = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color = "black") %>%
+  cols_align(align = "left", columns = stub()) %>%
+  data_color(
+    method = "numeric",
+    palette = "ggsci::blue_grey_material",
+    reverse = F
+  ) %>%
+  tab_footnote(
+    footnote = md("*Note: 1 = Best score. 0 = Worst score.*")
+  ) %>%
+  gtsave(file=paste(metrics.dir, "Combined_subproject_annotation1.0_scIB_metrics.html", sep = "/"))
+```
+
+```{r}
+# visualize table -- Subproject - Annotation 2.0
+metrics %>%
+  dplyr::filter(Batch == "Subproject", Annotation == "2.0") %>%
+  dplyr::select(!c("Method", "Batch", "Annotation", "Setting")) %>%
+  gt(rownames_to_stub = T) %>%
+  tab_header(title = md("**scIB Metrics**"),
+               subtitle = md("Integration by **Subproject**  &  label = **Annotation 2.0**")) %>%
+  cols_align(align = "center", columns = vars(colnames(.))) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>% 
+  tab_options(
+    table_body.hlines.style = "none",
+    column_labels.border.top.color = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color = "black") %>%
+  cols_align(align = "left", columns = stub()) %>%
+  data_color(
+    method = "numeric",
+    palette = "ggsci::blue_grey_material",
+    reverse = F
+  ) %>%
+  tab_footnote(
+    footnote = md("*Note: 1 = Best score. 0 = Worst score.*")
+  ) %>%
+  gtsave(file=paste(metrics.dir, "Combined_subproject_annotation2.0_scIB_metrics.html", sep = "/"))
+```
+
+
+```{r}
+# visualize table -- Sample - Annotation 1.0
+metrics %>%
+  dplyr::filter(Batch == "Sample", Annotation == "1.0") %>%
+  dplyr::select(!c("Method", "Batch", "Annotation", "Setting")) %>%
+  gt(rownames_to_stub = T) %>%
+  tab_header(title = md("**scIB Metrics**"),
+               subtitle = md("Integration by **Sample**  &  label = **Annotation 1.0**")) %>%
+  cols_align(align = "center", columns = vars(colnames(.))) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>% 
+  tab_options(
+    table_body.hlines.style = "none",
+    column_labels.border.top.color = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color = "black") %>%
+  cols_align(align = "left", columns = stub()) %>%
+  data_color(
+    method = "numeric",
+    palette = "ggsci::blue_grey_material",
+    reverse = F
+  ) %>%
+  tab_footnote(
+    footnote = md("*Note: 1 = Best score. 0 = Worst score.*")
+  ) %>%
+  gtsave(file=paste(metrics.dir, "Combined_sample_annotation1.0_scIB_metrics.html", sep = "/"))
+```
+
+```{r}
+metrics %>%
+  dplyr::filter(Batch == "Sample", Annotation == "2.0") %>%
+  dplyr::select(!c("Method", "Batch", "Annotation", "Setting")) %>%
+  gt(rownames_to_stub = T) %>%
+  tab_header(title = md("**scIB Metrics**"),
+               subtitle = md("Integration by **Sample**  &  label = **Annotation 2.0**")) %>%
+  cols_align(align = "center", columns = vars(colnames(.))) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>% 
+  tab_options(
+    table_body.hlines.style = "none",
+    column_labels.border.top.color = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color = "black") %>%
+  cols_align(align = "left", columns = stub()) %>%
+  data_color(
+    method = "numeric",
+    palette = "ggsci::blue_grey_material",
+    reverse = F
+  ) %>%
+  tab_footnote(
+    footnote = md("*Note: 1 = Best score. 0 = Worst score.*")
+  ) %>%
+  gtsave(file=paste(metrics.dir, "Combined_sample_annotation2.0_scIB_metrics.html", sep = "/"))
+```
+
+
+```{r}
+# scale metrics (by column. Considering all settings -> so we can rank them)
+metrics.scaled <- apply(metrics[,1:12], 2, function(x) (x - min(x)) / (max(x) - min(x))) %>% as.data.frame()
+metrics.scaled <- cbind(metrics.scaled, metrics[,13:16])
+metrics.scaled
+```
+
+```{r}
+# visualize table 
+metrics.scaled %>%
+  gt(rownames_to_stub = T) %>%
+  tab_header(title = md("**scIB Scaled Metrics**")) %>%
+  cols_align(align = "center", columns = vars(colnames(.))) %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>% 
+  tab_options(
+    table_body.hlines.style = "none",
+    column_labels.border.top.color = "black",
+    column_labels.border.bottom.color = "black",
+    table_body.border.bottom.color = "black") %>%
+  cols_align(align = "left", columns = stub()) %>%
+  data_color(
+    method = "numeric",
+    palette = "ggsci::blue_grey_material",
+    reverse = F
+  ) %>%
+  tab_footnote(
+    footnote = md("*Note: 1 = Best score. 0 = Worst score.*")
+  ) %>%
+  gtsave(file=paste(metrics.dir, "Combined_merged_scaled_scIB_metrics.html", sep = "/"))
+```
+
+
+```{r}
+# group into 2 groups: removal of batch effects & conservation of biological variation
+batch <- metrics.scaled %>%
+    select(c("ASW_label/batch", "PCR_batch", "graph_conn", "iLISI", "kBET")) %>%
+    mutate("Batch_Correction" = rowMeans(.)) %>%
+    select("Batch_Correction")
+
+bio <- metrics.scaled %>%
+    select(c("ASW_label", "ARI_cluster/label", "NMI_cluster/label", "cLISI", "isolated_label_silhouette", "isolated_label_F1", "hvg_overlap")) %>% #isolated not included because we don't expect new rare cell types # "isolated_label_silhouette", "isolated_label_F1", 
+    mutate("Bio_Conservation" = rowMeans(.)) %>%
+    select("Bio_Conservation")
+
+metrics.full <- cbind(
+  metrics.scaled,
+  batch,
+  bio
+)
+```
+
+```{r}
+# add overall score giving weights to batch and bio
+metrics.full <- metrics.full %>%
+  mutate("Overall" = (0.4 * Batch_Correction) + (0.6 * Bio_Conservation))
+```
+
+```{r}
+# save full metrics df (bio, batch, and overall scores)
+write.csv(metrics.full, file = paste(metrics.dir, "Combined_merged_scaled_full_scIB_metrics.csv", sep = "/"))
+```
+
+```{r}
+# colors
+cols <- c("#FFC3A0", "#FFD3B6", "#FFECBB", "#D0E6A5", "#B8E986", "#A7F5B9", "#A2F5DB", "#B3E0F2", "#B8CCEA", "#E2B5F7")
+```
+
+
+```{r}
+ggplot(metrics.full, aes(x = Batch_Correction, y = Bio_Conservation)) + 
+  geom_point(color='black', shape=21, size=3, aes(fill=Method)) + 
+  #scale_fill_manual(values = cols) + 
+  theme_classic() + 
+  labs(x = "Batch Correction Score", y = "Bio Conservation Score")
+```
+
+```{r}
+lp <- ggplot(metrics.full, aes(x = Batch_Correction, y = Bio_Conservation, fill = Method)) +
+  geom_point(color='black', shape=21, size=3, aes(fill=Method)) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5)) + 
+  labs(x = "Batch Correction Score", y = "Bio Conservation Score") + 
+  #scale_fill_manual(values = rep(cols, 4)) + 
+  facet_grid(Annotation ~ Batch)
+ggsave(plot=lp, filename=paste(user.dir, "SERPENTINE", "figures", "TFM", "FigS1", "methods_legend.pdf", sep = "/"), dpi=300, device="pdf")
+```
+
+```{r}
+pl2 <- ggplot(metrics.full, aes(x = reorder(Setting, Overall), y = Overall, fill = Method)) + 
+  geom_bar(stat = "Identity", alpha = .8, width = .5, color="black") + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5)) + 
+  labs(x = "Setting", y = "Overall Integration Score")
+ggsave(plot=pl2, filename=paste(user.dir, "SERPENTINE", "figures", "TFM", "FigS1", "Overall_score.pdf", sep = "/"), dpi=300, device="pdf", width = 7, height = 4)
+pl2
+```
+
+```{r}
+ggplot(metrics.full, aes(x = Method, y = Overall, fill = Setting)) + 
+  geom_bar(stat = "Identity", alpha = .8, width = .5, color="black") + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5)) + 
+  labs(x = "Integration Method", y = "Overall Integration Score") + 
+  #scale_fill_manual(values = rep(cols, 4)) + 
+  facet_grid(Annotation ~ Batch)
+```
+
+
+```{r}
+library(ggpubr)
+
+cols <- c("lightsteelblue3", "salmon3")
+
+plot1 <- ggplot(metrics.full, aes(x = Batch_Correction, y = Bio_Conservation, color = Batch)) + 
+  geom_point(aes(color = Batch), size = 3) + 
+  geom_point(color='black', shape=21, size=3) + 
+  scale_fill_manual(values = cols) + 
+  stat_smooth(method = "lm", fullrange = F) +
+  geom_rug() + 
+  scale_y_continuous(name = "Bio Conservation Score") + 
+  scale_x_continuous(name = "Batch Correction Score") + 
+  theme_pubr() + 
+  scale_colour_manual(values = cols)
+
+dens1 <- ggplot(metrics.full, aes(x = Batch_Correction, fill = Batch)) + 
+  geom_density(alpha = 0.4) + 
+  theme_void() + 
+  theme(legend.position = "none") + 
+  scale_fill_manual(values = cols)
+
+dens2 <- ggplot(metrics.full, aes(x = Bio_Conservation, fill = Batch)) + 
+  geom_density(alpha = 0.4) + 
+  theme_void() + 
+  theme(legend.position = "none") + 
+  coord_flip() + 
+  scale_fill_manual(values = cols)
+
+dens1 + patchwork::plot_spacer() + plot1 + dens2 + 
+  patchwork::plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
+
+```{r}
+cols <- c("darkorange3", "darkorchid3")
+
+plot1 <- ggplot(metrics.full, aes(x = Batch_Correction, y = Bio_Conservation, color = Annotation)) + 
+  geom_point(aes(color = Annotation), size = 3) + 
+  geom_point(color='black', shape=21, size=3) + 
+  scale_fill_manual(values = cols) + 
+  stat_smooth(method = "lm", fullrange = F) +
+  geom_rug() + 
+  scale_y_continuous(name = "Bio Conservation Score") + 
+  scale_x_continuous(name = "Batch Correction Score") + 
+  theme_pubr() +
+  scale_colour_manual(values = cols)
+
+dens1 <- ggplot(metrics.full, aes(x = Batch_Correction, fill = Annotation)) + 
+  geom_density(alpha = 0.4) + 
+  theme_void() + 
+  theme(legend.position = "none") + 
+  scale_fill_manual(values = cols)
+
+dens2 <- ggplot(metrics.full, aes(x = Bio_Conservation, fill = Annotation)) + 
+  geom_density(alpha = 0.4) + 
+  theme_void() + 
+  theme(legend.position = "none") + 
+  coord_flip() + 
+  scale_fill_manual(values = cols)
+
+dens1 + patchwork::plot_spacer() + plot1 + dens2 + 
+  patchwork::plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+```
+
+```{r}
+plot1 <- ggplot(metrics.full, aes(x = Batch_Correction, y = Bio_Conservation, color = paste(Batch, Annotation))) + 
+  geom_point(aes(color = paste(Batch, Annotation)), size = 3) + 
+  geom_point(color='black', shape=21, size=3) + 
+  scale_fill_manual(values = cols) + 
+  stat_smooth(method = "lm", fullrange = F) +
+  geom_rug() + 
+  scale_y_continuous(name = "Bio Conservation Score") + 
+  scale_x_continuous(name = "Batch Correction Score") + 
+  theme_pubr() 
+
+dens1 <- ggplot(metrics.full, aes(x = Batch_Correction, fill = paste(Batch, Annotation))) + 
+  geom_density(alpha = 0.4) + 
+  theme_void() + 
+  theme(legend.position = "none")
+
+dens2 <- ggplot(metrics.full, aes(x = Bio_Conservation, fill = paste(Batch, Annotation))) + 
+  geom_density(alpha = 0.4) + 
+  theme_void() + 
+  theme(legend.position = "none") + 
+  coord_flip()
+
+pl <- dens1 + patchwork::plot_spacer() + plot1 + dens2 + 
+  patchwork::plot_layout(ncol = 2, nrow = 2, widths = c(4, 1), heights = c(1, 4))
+ggsave(plot=pl, filename=paste(user.dir, "SERPENTINE", "figures", "TFM", "FigS1", "Metrics_densities.pdf", sep = "/"), dpi=300, device="pdf")
+```
+
+
+```{r}
+ggplot(metrics.full, aes(x = reorder(Setting, Bio_Conservation), y = Bio_Conservation, fill = Method)) + 
+  geom_bar(stat = "Identity", alpha = .8, width = .5, color="black") + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5)) + 
+  labs(x = "Setting", y = "Bio Cons Integration Score")
+
+```
+
+```{r}
+ggplot(metrics.full, aes(x = reorder(Setting, Batch_Correction), y = Batch_Correction, fill = Method)) + 
+  geom_bar(stat = "Identity", alpha = .8, width = .5, color="black") + 
+  theme_bw() + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5)) + 
+  labs(x = "Setting", y = "Batch Corr Integration Score")
+```
+
